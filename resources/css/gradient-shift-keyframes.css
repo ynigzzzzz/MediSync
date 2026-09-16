@@ -1,0 +1,9 @@
+/* Add this to resources/css/app.css (after the @tailwind directives,
+   can go in the same file as the scrollbar-hide rule from before).
+   Powers the animated gradient shimmer on the login page's buttons. */
+
+@keyframes gradientShift {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
