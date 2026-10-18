@@ -1,4 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
+import NotificationBell from '@/Components/NotificationBell';
 
 const NAV_ITEMS = [
     { href: '/dashboard', label: 'Dashboard', icon: 'fa-tachometer-alt' },
@@ -6,7 +7,6 @@ const NAV_ITEMS = [
     { href: '/stock-receiving', label: 'Stock Receiving', icon: 'fa-arrow-down', hideFor: ['assistant'] },
     { href: '/dispensing', label: 'Stock Dispensing', icon: 'fa-arrow-up' },
     { href: '/transaction-history', label: 'Transaction History', icon: 'fa-history' },
-    { href: '/contact', label: 'Contact / Support', icon: 'fa-headset' },
 ];
 
 export default function AuthenticatedLayout({ children }) {
@@ -88,6 +88,50 @@ export default function AuthenticatedLayout({ children }) {
                         </Link>
                     )}
 
+                    {/* Suppliers — visible to admin + pharmacist */}
+{(role === 'admin' || role === 'pharmacist') && (
+    <Link
+        href="/suppliers"
+        className="block rounded-[10px] font-medium text-sm text-charcoal-blue transition-all duration-200"
+        style={
+            currentPath.startsWith('/suppliers')
+                ? {
+                      backgroundColor: '#FFB7CE',
+                      fontWeight: 600,
+                      boxShadow: '0 4px 14px rgba(255,100,150,0.22)',
+                      borderLeft: '3.5px solid #764248',
+                      padding: '12px 20px 12px 16.5px',
+                  }
+                : { padding: '12px 20px' }
+        }
+    >
+        <i className="fas fa-truck w-7 mr-3 text-center" />
+        Suppliers
+    </Link>
+)}
+
+{/* Reports — visible to admin + pharmacist */}
+{(role === 'admin' || role === 'pharmacist') && (
+    <Link
+        href="/reports"
+        className="block rounded-[10px] font-medium text-sm text-charcoal-blue transition-all duration-200"
+        style={
+            currentPath.startsWith('/reports')
+                ? {
+                      backgroundColor: '#FFB7CE',
+                      fontWeight: 600,
+                      boxShadow: '0 4px 14px rgba(255,100,150,0.22)',
+                      borderLeft: '3.5px solid #764248',
+                      padding: '12px 20px 12px 16.5px',
+                  }
+                : { padding: '12px 20px' }
+        }
+    >
+        <i className="fas fa-chart-pie w-7 mr-3 text-center" />
+        Reports
+    </Link>
+)}
+
                     <Link
                         href="/logout"
                         method="post"
@@ -103,8 +147,25 @@ export default function AuthenticatedLayout({ children }) {
 
             {/* Main content — fixed left offset for the sidebar, never centered. */}
             <div className="ml-[280px] h-screen overflow-y-auto bg-white" style={{ scrollbarGutter: 'stable'}}>
-                <div className="flex justify-end items-center px-6 py-4 border-b border-gray-100">
-                    <div className="flex items-center gap-2">
+                {/* Top bar: Contact + Notifications as circle buttons (Messenger-style), then the user */}
+                <div className="sticky top-0 z-30 flex justify-end items-center gap-3 px-6 py-4 border-b border-gray-100 bg-white">
+                    <Link
+                        href="/contact"
+                        aria-label="Contact / Support"
+                        title="Contact / Support"
+                        className={
+                            'w-10 h-10 rounded-full flex items-center justify-center transition-colors ' +
+                            (currentPath.startsWith('/contact')
+                                ? 'bg-cherry-blossom text-burnt-rose'
+                                : 'bg-gray-100 text-charcoal-blue hover:bg-cherry-blossom hover:text-burnt-rose')
+                        }
+                    >
+                        <i className="fas fa-headset" />
+                    </Link>
+
+                    <NotificationBell />
+
+                    <div className="flex items-center gap-2 ml-1">
                         {auth.user?.profile_image ? (
                             <img
                                 src={`/storage/${auth.user.profile_image}`}

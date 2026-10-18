@@ -2,22 +2,19 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
-
     protected $table = 'users';
     protected $primaryKey = 'user_id';
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $fillable = [
         'full_name',
         'email',
-        'password_hash',
+        'password_hash',  // ← This should match your database column
         'role',
         'status',
         'profile_image',
@@ -25,48 +22,16 @@ class User extends Authenticatable
 
     protected $hidden = [
         'password_hash',
+        'remember_token',
     ];
 
     protected $casts = [
         'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
-    /**
-     * Laravel's auth guard expects getAuthPassword() to return the hash —
-     * our column is password_hash, not the default password.
-     */
-    public function getAuthPassword(): string
+    public function getAuthPassword()
     {
         return $this->password_hash;
-    }
-
-    public function isActive(): bool
-    {
-        return $this->status === 'active';
-    }
-
-    public function isAdmin(): bool
-    {
-        return $this->role === 'admin';
-    }
-
-    public function stockIn()
-    {
-        return $this->hasMany(StockIn::class, 'received_by', 'user_id');
-    }
-
-    public function stockOut()
-    {
-        return $this->hasMany(StockOut::class, 'dispensed_by', 'user_id');
-    }
-
-    public function contactMessages()
-    {
-        return $this->hasMany(ContactMessage::class, 'user_id', 'user_id');
-    }
-
-    public function auditLogs()
-    {
-        return $this->hasMany(AuditLog::class, 'user_id', 'user_id');
     }
 }

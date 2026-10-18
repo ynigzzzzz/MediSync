@@ -13,10 +13,6 @@ use Inertia\Inertia;
 
 class TransactionHistoryController extends Controller
 {
-    /**
-     * Union query: stock_in + stock_out, normalized to one shape.
-     * Mirrors the legacy $innerQuery UNION ALL.
-     */
     private function baseUnion()
     {
         $stockIn = DB::table('stock_in as si')
@@ -71,40 +67,31 @@ class TransactionHistoryController extends Controller
         return $stockIn->unionAll($stockOut);
     }
 
-    /** Apply GET filters (search/type/date range/user) onto a wrapped union query. */
     private function applyFilters($query, Request $request)
     {
-        $search = trim((string) $request->query('search', ''));
-        $type = $request->query('type', '');
-        $dateFrom = $request->query('date_from', '');
-        $dateTo = $request->query('date_to', '');
+        $search     = trim((string) $request->query('search', ''));
+        $type       = $request->query('type', '');
+        $dateFrom   = $request->query('date_from', '');
+        $dateTo     = $request->query('date_to', '');
         $userFilter = $request->query('user', '');
 
         if ($search !== '') {
             $like = "%{$search}%";
             $query->where(function ($q) use ($like) {
                 $q->where('generic_name', 'ILIKE', $like)
-                    ->orWhere('brand_name', 'ILIKE', $like)
-                    ->orWhere('patient_name', 'ILIKE', $like)
-                    ->orWhere('supplier', 'ILIKE', $like);
+                  ->orWhere('brand_name', 'ILIKE', $like)
+                  ->orWhere('patient_name', 'ILIKE', $like)
+                  ->orWhere('supplier', 'ILIKE', $like);
             });
         }
 
         if ($type !== '' && $type !== 'all') {
-            if ($type === 'Stock-In') {
-                $query->where('source_table', 'stock_in');
-            } elseif ($type === 'Stock-Out') {
-                $query->where('source_table', 'stock_out');
-            }
+            if ($type === 'Stock-In')  $query->where('source_table', 'stock_in');
+            if ($type === 'Stock-Out') $query->where('source_table', 'stock_out');
         }
 
-        if ($dateFrom !== '') {
-            $query->whereRaw('DATE(date_time) >= ?', [$dateFrom]);
-        }
-
-        if ($dateTo !== '') {
-            $query->whereRaw('DATE(date_time) <= ?', [$dateTo]);
-        }
+        if ($dateFrom !== '') $query->whereRaw('DATE(date_time) >= ?', [$dateFrom]);
+        if ($dateTo !== '')   $query->whereRaw('DATE(date_time) <= ?', [$dateTo]);
 
         if ($userFilter !== '' && $userFilter !== 'all') {
             $query->where('user_name', $userFilter);
@@ -115,76 +102,59 @@ class TransactionHistoryController extends Controller
 
     public function index(Request $request)
     {
-        $filtered = fn () => $this->applyFilters(
-            DB::query()->fromSub($this->baseUnion(), 't'),
-            $request
-        );
+        $filtered = fn () => $this->applyFilters(DB::query()->fromSub($this->baseUnion(), 't'), $request);
 
+        // Paginated view — 15 rows per page.
         $transactions = $filtered()
             ->orderByDesc('date_time')
-            ->limit(100)
-            ->get();
+            ->paginate(15)
+            ->withQueryString();
 
+        // Stat-card counts stay on the FULL filtered dataset.
         $totalFilteredRecords = $filtered()->count();
-
         $typeCounts = $filtered()
             ->select('transaction_type', DB::raw('COUNT(*) as count'))
             ->groupBy('transaction_type')
             ->pluck('count', 'transaction_type');
 
         $totalTransactions = StockIn::count() + StockOut::count();
+        $stockInTotal  = (float) StockIn::whereRaw("DATE_TRUNC('month', recorded_at) = DATE_TRUNC('month', CURRENT_DATE)")->sum('quantity');
+        $stockOutTotal = (float) StockOut::whereRaw("DATE_TRUNC('month', dispensed_at) = DATE_TRUNC('month', CURRENT_DATE)")->sum('quantity');
 
-        $stockInTotal = (float) StockIn::whereRaw(
-            "DATE_TRUNC('month', recorded_at) = DATE_TRUNC('month', CURRENT_DATE)"
-        )->sum('quantity');
-
-        $stockOutTotal = (float) StockOut::whereRaw(
-            "DATE_TRUNC('month', dispensed_at) = DATE_TRUNC('month', CURRENT_DATE)"
-        )->sum('quantity');
-
-        $users = User::where('role', '!=', 'admin')
-            ->orderBy('full_name')
-            ->pluck('full_name');
-
-        $lowStockModal = Medicine::whereColumn('current_stock', '<', DB::raw('50'))
-            ->where('current_stock', '>', 0)
-            ->orderBy('generic_name')
-            ->get(['generic_name', 'dosage', 'current_stock'])
-            ->map(fn ($m) => [...$m->toArray(), 'min_level' => 50]);
-
-        $outOfStockModal = Medicine::where('current_stock', 0)
-            ->orderBy('generic_name')
-            ->get(['generic_name', 'dosage']);
+        $users = User::where('role', '!=', 'admin')->orderBy('full_name')->pluck('full_name');
 
         $allExpiringBatches = DB::table('stock_in as si')
             ->join('medicines as m', 'si.medicine_id', '=', 'm.medicine_id')
             ->whereRaw("si.expiry_date <= CURRENT_DATE + INTERVAL '30 days'")
             ->orderBy('si.expiry_date')
             ->selectRaw("
-                m.generic_name, m.brand_name, si.batch_no, si.expiry_date,
+                m.generic_name,
+                m.brand_name,
+                si.batch_no,
+                si.expiry_date,
                 (si.expiry_date - CURRENT_DATE) as days_left,
-                si.remaining_quantity, si.stock_in_id
+                si.remaining_quantity,
+                si.stock_in_id
             ")
             ->get();
 
         return Inertia::render('TransactionHistory/Index', [
-            'transactions' => $transactions,
+            'transactions'         => $transactions,
             'totalFilteredRecords' => $totalFilteredRecords,
-            'stockInCount' => $typeCounts['Stock-In'] ?? 0,
-            'stockOutCount' => $typeCounts['Stock-Out'] ?? 0,
-            'totalTransactions' => $totalTransactions,
-            'stockInTotal' => $stockInTotal,
-            'stockOutTotal' => $stockOutTotal,
-            'users' => $users,
-            'lowStockModal' => $lowStockModal,
-            'outOfStockModal' => $outOfStockModal,
-            'allExpiringBatches' => $allExpiringBatches,
-            'filters' => $request->only(['search', 'type', 'date_from', 'date_to', 'user']),
+            'stockInCount'         => $typeCounts['Stock-In'] ?? 0,
+            'stockOutCount'        => $typeCounts['Stock-Out'] ?? 0,
+            'totalTransactions'    => $totalTransactions,
+            'stockInTotal'         => $stockInTotal,
+            'stockOutTotal'        => $stockOutTotal,
+            'users'                => $users,
+            'allExpiringBatches'   => $allExpiringBatches,
+            'filters'              => $request->only(['search', 'type', 'date_from', 'date_to', 'user']),
         ]);
     }
 
     public function exportCsv(Request $request)
     {
+        // NOTE: exports ALL filtered rows — never paginated.
         $rows = $this->applyFilters(
             DB::query()->fromSub($this->baseUnion(), 't'),
             $request
@@ -214,30 +184,26 @@ class TransactionHistoryController extends Controller
 
     public function disposeBatches(Request $request)
     {
-        if (! in_array($request->user()->role, ['admin', 'pharmacist'])) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Only administrators and pharmacists can dispose batches.',
-            ], 403);
-        }
+        abort_unless(
+            in_array($request->user()->role, ['admin', 'pharmacist']),
+            403,
+            'Only administrators and pharmacists can dispose batches.'
+        );
 
         $batchIds = $request->input('batch_ids', []);
         if (empty($batchIds)) {
-            return response()->json(['success' => false, 'message' => 'No batches selected.'], 422);
+            return back()->withErrors(['batch_ids' => 'No batches selected.']);
         }
 
         try {
             DB::transaction(function () use ($batchIds, $request) {
                 foreach ($batchIds as $sid) {
                     $batch = StockIn::where('stock_in_id', (int) $sid)->lockForUpdate()->first();
-                    if (! $batch) {
-                        continue;
-                    }
+                    if (! $batch) continue;
 
                     Medicine::where('medicine_id', $batch->medicine_id)
                         ->decrement('current_stock', $batch->remaining_quantity);
 
-                    // Remove stock_out rows referencing this batch to avoid FK violation.
                     StockOut::where('stock_in_id', $batch->stock_in_id)->delete();
                     $batch->delete();
 
@@ -249,10 +215,10 @@ class TransactionHistoryController extends Controller
                     );
                 }
             });
-
-            return response()->json(['success' => true]);
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+            return back()->withErrors(['dispose' => $e->getMessage()]);
         }
+
+        return back()->with('success', 'Selected batches disposed.');
     }
 }

@@ -1,37 +1,38 @@
 import { useState } from 'react';
-import { Head, router, usePage } from '@inertiajs/react';  // ← Added Head
+import { Head, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import StatCard from '@/Components/StatCard';
+import Badge from '@/Components/Badge';
+import ConfirmDialog from '@/Components/ConfirmDialog';
+import ExpiryWarning from '@/Components/ExpiryWarning';
+import Pagination from '@/Components/Pagination';
 
 const emptyForm = { generic_name: '', brand_name: '', type: '', category: '', dosage: '', price: '' };
 
-export default function Index({ medicines, totalMedicines, lowStockCount, outOfStockCount, activeFilter }) {
-    const { auth, flash } = usePage().props;
+export default function Index({ medicines, totalMedicines, lowStockCount, outOfStockCount, expiryWarning, activeFilter }) {
+    const { auth, flash, errors } = usePage().props;
     const role = auth.user.role;
-    
-    const canEdit = role === 'admin' || role === 'pharmacist';
-    const canDelete = role === 'admin';
+    const canEdit = role !== 'assistant';
 
-    const [filter, setFilter] = useState(activeFilter);
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [form, setForm] = useState(emptyForm);
     const [message, setMessage] = useState(flash?.message || null);
+    const [pendingDelete, setPendingDelete] = useState(null);
 
-    const filtered = medicines.filter((m) => {
-        if (filter === 'lowstock') return m.current_stock > 0 && m.current_stock < 50;
-        if (filter === 'outofstock') return m.current_stock === 0;
-        return true;
-    });
+    const rows = medicines?.data ?? [];
+
+    function applyFilter(filter) {
+        router.get('/medicine-list', { filter }, { preserveScroll: true, preserveState: true });
+    }
 
     function openAdd() {
-        if (!canEdit) return;
         setForm(emptyForm);
         setEditingId(null);
         setShowForm(true);
     }
 
     function openEdit(m) {
-        if (!canEdit) return;
         setForm({
             generic_name: m.generic_name, brand_name: m.brand_name, type: m.type,
             category: m.category, dosage: m.dosage, price: m.price,
@@ -40,8 +41,8 @@ export default function Index({ medicines, totalMedicines, lowStockCount, outOfS
         setShowForm(true);
     }
 
-    function submitForm() {
-        if (!canEdit) return;
+    function submitForm(e) {
+        e.preventDefault();
         const url = editingId ? `/medicine-list/${editingId}` : '/medicine-list';
         const method = editingId ? 'put' : 'post';
         router[method](url, form, {
@@ -50,112 +51,118 @@ export default function Index({ medicines, totalMedicines, lowStockCount, outOfS
         });
     }
 
-    function deleteMedicine(id) {
-        if (!canDelete) return;
-        if (!confirm('Delete this medicine?')) return;
-        router.delete(`/medicine-list/${id}`, { preserveScroll: true });
+    function confirmDelete() {
+        router.delete(`/medicine-list/${pendingDelete.medicine_id}`, {
+            preserveScroll: true,
+            onFinish: () => setPendingDelete(null),
+        });
     }
 
     return (
         <AuthenticatedLayout>
             <Head title="Medicine Catalog" />
-            <>
-                <div className="flex items-center justify-between">
-                    <h1 className="text-2xl font-semibold text-charcoal-blue">Medicine Catalog</h1>
-                    {canEdit && (
-                        <button className="bg-blue-600 text-white rounded px-4 py-2" onClick={openAdd}>
-                            Add Medicine
-                        </button>
-                    )}
-                    {!canEdit && (
-                        <span className="text-sm text-gray-500">View-only mode</span>
-                    )}
-                </div>
 
-                {message && <div className="bg-green-100 text-green-800 p-3 rounded">{message}</div>}
+            <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-semibold text-charcoal-blue">Medicine Catalog</h1>
+                {canEdit && (
+                    <button
+                        onClick={openAdd}
+                        className="rounded-lg px-4 py-1.5 text-sm font-medium bg-cherry-blossom text-charcoal-blue transition-colors hover:bg-burnt-rose hover:text-white"
+                    >
+                        Add Medicine
+                    </button>
+                )}
+            </div>
 
-                <div className="flex gap-3 text-sm">
-                    <button className={`px-3 py-1 rounded border ${filter === 'all' ? 'bg-gray-800 text-white' : ''}`} onClick={() => setFilter('all')}>
-                        All ({totalMedicines})
-                    </button>
-                    <button className={`px-3 py-1 rounded border ${filter === 'lowstock' ? 'bg-amber-600 text-white' : ''}`} onClick={() => setFilter('lowstock')}>
-                        Low stock ({lowStockCount})
-                    </button>
-                    <button className={`px-3 py-1 rounded border ${filter === 'outofstock' ? 'bg-red-600 text-white' : ''}`} onClick={() => setFilter('outofstock')}>
-                        Out of stock ({outOfStockCount})
-                    </button>
-                </div>
+            {message && <div className="bg-green-50 text-green-800 border border-green-200 rounded-lg p-3 text-sm">{message}</div>}
+            {errors?.generic_name && <div className="bg-red-50 text-red-800 border border-red-200 rounded-lg p-3 text-sm">{errors.generic_name}</div>}
 
-                {showForm && canEdit && (
-                    <div className="border rounded-lg p-4 space-y-3">
-                        <h2 className="font-medium text-charcoal-blue">{editingId ? 'Edit Medicine' : 'Add Medicine'}</h2>
+            <div className="grid grid-cols-3 gap-4">
+                <StatCard label="Total Medicines" value={totalMedicines} icon="fa-capsules"
+                    onClick={() => applyFilter('all')} active={activeFilter === 'all'} />
+                <StatCard label="Low Stock" value={lowStockCount} icon="fa-triangle-exclamation" color="#E67E22"
+                    onClick={() => applyFilter('lowstock')} active={activeFilter === 'lowstock'} />
+                <StatCard label="Out of Stock" value={outOfStockCount} icon="fa-circle-xmark" color="#DC3545"
+                    onClick={() => applyFilter('outofstock')} active={activeFilter === 'outofstock'} />
+            </div>
+
+            <ExpiryWarning data={expiryWarning} storageKey="expiry-warning-catalog" />
+
+            {showForm && (
+                <div className="bg-white border border-eggshell rounded-[15px] p-4 space-y-3">
+                    <h2 className="font-medium text-charcoal-blue">{editingId ? 'Edit Medicine' : 'Add Medicine'}</h2>
+                    <form onSubmit={submitForm} className="space-y-3">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <input className="border rounded p-2" placeholder="Generic name" value={form.generic_name}
-                                onChange={(e) => setForm({ ...form, generic_name: e.target.value })} />
-                            <input className="border rounded p-2" placeholder="Brand name" value={form.brand_name}
+                            <input className="rounded-lg border-gray-300 text-sm focus:border-cherry-blossom focus:ring-cherry-blossom" placeholder="Generic name" value={form.generic_name}
+                                onChange={(e) => setForm({ ...form, generic_name: e.target.value })} required />
+                            <input className="rounded-lg border-gray-300 text-sm focus:border-cherry-blossom focus:ring-cherry-blossom" placeholder="Brand name" value={form.brand_name}
                                 onChange={(e) => setForm({ ...form, brand_name: e.target.value })} />
-                            <input className="border rounded p-2" placeholder="Type" value={form.type}
+                            <input className="rounded-lg border-gray-300 text-sm focus:border-cherry-blossom focus:ring-cherry-blossom" placeholder="Type" value={form.type}
                                 onChange={(e) => setForm({ ...form, type: e.target.value })} />
-                            <input className="border rounded p-2" placeholder="Category" value={form.category}
+                            <input className="rounded-lg border-gray-300 text-sm focus:border-cherry-blossom focus:ring-cherry-blossom" placeholder="Category" value={form.category}
                                 onChange={(e) => setForm({ ...form, category: e.target.value })} />
-                            <input className="border rounded p-2" placeholder="Dosage" value={form.dosage}
+                            <input className="rounded-lg border-gray-300 text-sm focus:border-cherry-blossom focus:ring-cherry-blossom" placeholder="Dosage" value={form.dosage}
                                 onChange={(e) => setForm({ ...form, dosage: e.target.value })} />
-                            <input className="border rounded p-2" type="number" step="0.01" placeholder="Price" value={form.price}
-                                onChange={(e) => setForm({ ...form, price: e.target.value })} />
+                            <input className="rounded-lg border-gray-300 text-sm focus:border-cherry-blossom focus:ring-cherry-blossom" type="number" step="0.01" placeholder="Price" value={form.price}
+                                onChange={(e) => setForm({ ...form, price: e.target.value })} required />
                         </div>
                         {!editingId && <p className="text-xs text-gray-500">New medicines start at 0 stock — add stock via Stock Receiving.</p>}
                         <div className="flex gap-2">
-                            <button className="bg-green-600 text-white rounded px-4 py-2" onClick={submitForm}>Save</button>
-                            <button className="border rounded px-4 py-2" onClick={() => setShowForm(false)}>Cancel</button>
+                            <button type="submit" className="rounded-lg bg-success-green text-white text-sm px-4 py-2 hover:opacity-90">Save</button>
+                            <button type="button" onClick={() => setShowForm(false)} className="rounded-lg border border-gray-300 text-sm px-4 py-2">Cancel</button>
                         </div>
-                    </div>
-                )}
-
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="text-left border-b">
-                                <th className="py-2 text-charcoal-blue">Generic</th>
-                                <th className="py-2 text-charcoal-blue">Brand</th>
-                                <th className="py-2 text-charcoal-blue">Type</th>
-                                <th className="py-2 text-charcoal-blue">Category</th>
-                                <th className="py-2 text-charcoal-blue">Dosage</th>
-                                <th className="py-2 text-charcoal-blue">Price</th>
-                                <th className="py-2 text-charcoal-blue">Stock</th>
-                                {(canEdit || canDelete) && <th className="py-2 text-charcoal-blue"></th>}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filtered.map((m) => (
-                                <tr key={m.medicine_id} className="border-b">
-                                    <td className="py-2 text-charcoal-blue">{m.generic_name}</td>
-                                    <td className="py-2 text-charcoal-blue">{m.brand_name}</td>
-                                    <td className="py-2 text-charcoal-blue">{m.type}</td>
-                                    <td className="py-2 text-charcoal-blue">{m.category}</td>
-                                    <td className="py-2 text-charcoal-blue">{m.dosage}</td>
-                                    <td className="py-2 text-charcoal-blue">₱{Number(m.price).toFixed(2)}</td>
-                                    <td className={`py-2 ${m.current_stock === 0 ? 'text-red-600' : m.current_stock < 50 ? 'text-amber-600' : 'text-charcoal-blue'}`}>
-                                        {m.current_stock}
-                                    </td>
-                                    {(canEdit || canDelete) && (
-                                        <td className="py-2 space-x-2">
-                                            {canEdit && (
-                                                <button className="text-blue-600" onClick={() => openEdit(m)}>Edit</button>
-                                            )}
-                                            {canDelete && (
-                                                <button className="text-red-600" onClick={() => deleteMedicine(m.medicine_id)}>Delete</button>
-                                            )}
-                                        </td>
-                                    )}
-                                </tr>
-                            ))}
-                            {filtered.length === 0 && (
-                                <tr><td colSpan={8} className="py-4 text-center text-gray-400">No medicines match the filter.</td></tr>
-                            )}
-                        </tbody>
-                    </table>
+                    </form>
                 </div>
-            </>
+            )}
+
+            <div className="bg-white rounded-[15px] border border-eggshell overflow-hidden">
+                <table className="w-full text-sm">
+                    <thead>
+                        <tr className="text-left border-b border-eggshell text-charcoal-blue">
+                            <th className="p-3">Generic</th><th>Brand</th><th>Type</th><th>Category</th><th>Dosage</th>
+                            <th>Price</th><th>Stock</th>{canEdit && <th></th>}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.map((m) => (
+                            <tr key={m.medicine_id} className="border-b border-eggshell last:border-0 hover:bg-[rgba(223,226,207,0.3)]">
+                                <td className="p-3 text-charcoal-blue">{m.generic_name}</td>
+                                <td className="text-charcoal-blue">{m.brand_name}</td>
+                                <td className="text-charcoal-blue">{m.type}</td>
+                                <td className="text-charcoal-blue">{m.category}</td>
+                                <td className="text-charcoal-blue">{m.dosage}</td>
+                                <td className="text-charcoal-blue">₱{Number(m.price).toFixed(2)}</td>
+                                <td className="text-charcoal-blue">
+                                    <span className="mr-2">{m.current_stock}</span>
+                                    {m.current_stock === 0 && <Badge tone="danger">Out of Stock</Badge>}
+                                    {m.current_stock > 0 && m.current_stock < 50 && <Badge tone="warning">Low Stock</Badge>}
+                                </td>
+                                {canEdit && (
+                                    <td className="space-x-2">
+                                        <button className="text-burnt-rose text-xs font-medium hover:underline" onClick={() => openEdit(m)}>Edit</button>
+                                        <button className="text-critical-red text-xs font-medium hover:underline" onClick={() => setPendingDelete(m)}>Delete</button>
+                                    </td>
+                                )}
+                            </tr>
+                        ))}
+                        {rows.length === 0 && (
+                            <tr><td colSpan={canEdit ? 8 : 7} className="p-6 text-center text-gray-400">No medicines match this filter.</td></tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            <Pagination meta={medicines} label="medicines" />
+
+            <ConfirmDialog
+                open={!!pendingDelete}
+                onOpenChange={(o) => !o && setPendingDelete(null)}
+                title="Delete this medicine?"
+                description={pendingDelete ? `"${pendingDelete.generic_name}" will be permanently removed from the catalog.` : ''}
+                confirmLabel="Delete"
+                tone="danger"
+                onConfirm={confirmDelete}
+            />
         </AuthenticatedLayout>
     );
 }

@@ -9,12 +9,16 @@ use App\Http\Controllers\TransactionHistoryController;
 use App\Http\Controllers\UserManagementController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Middleware\SyncStockAlerts;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\ReportController;
 
 Route::get('/', function () {
     return redirect()->route('login');
 });
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', SyncStockAlerts::class])->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -58,10 +62,20 @@ Route::middleware('auth')->group(function () {
     Route::delete('/user-management/{user}', [UserManagementController::class, 'destroy']);
     Route::post('/user-management/{user}/toggle-status', [UserManagementController::class, 'toggleStatus']);
 
-    //Contact
+    // Contact
     Route::get('/contact', [ContactController::class, 'create'])->name('contact.index');
     Route::post('/contact', [ContactController::class, 'store'])->name('contact.store');
 
+    // Notifications
+    Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'read'])->name('notifications.read');
+        // Suppliers
+    Route::get('/suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
+    Route::post('/suppliers', [SupplierController::class, 'store']);
+    Route::put('/suppliers/{supplier}', [SupplierController::class, 'update']);
+    Route::delete('/suppliers/{supplier}', [SupplierController::class, 'destroy']);
+     // Reports
+    Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
 
 });
 

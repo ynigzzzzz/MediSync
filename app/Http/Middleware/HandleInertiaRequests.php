@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\SystemNotification;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -41,6 +42,17 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'status' => fn () => $request->session()->get('status'),
             ],
+            // Bell data: the 10 most recent notifications + total unread.
+            'notifications' => fn () => $request->user() ? [
+                'unread' => SystemNotification::where('user_id', $request->user()->user_id)
+                    ->whereNull('read_at')
+                    ->count(),
+                'items' => SystemNotification::where('user_id', $request->user()->user_id)
+                    ->orderByDesc('created_at')
+                    ->orderByDesc('notification_id')
+                    ->limit(10)
+                    ->get(['notification_id', 'type', 'title', 'message', 'link', 'read_at', 'created_at']),
+            ] : null,
         ];
     }
 }

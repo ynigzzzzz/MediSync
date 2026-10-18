@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\Medicine;
 use App\Models\StockIn;
 use App\Models\StockOut;
-use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -18,10 +18,14 @@ class DispensingController extends Controller
             ->orderBy('generic_name')
             ->get(['medicine_id', 'generic_name', 'brand_name', 'dosage', 'current_stock', 'price']);
 
-        $stockOutRecords = StockOut::with(['medicine:medicine_id,generic_name,brand_name,dosage', 'dispensedBy:user_id,full_name', 'stockIn:stock_in_id,batch_no,expiry_date'])
+        $stockOutRecords = StockOut::with([
+                'medicine:medicine_id,generic_name,brand_name,dosage',
+                'dispensedBy:user_id,full_name',
+                'stockIn:stock_in_id,batch_no,expiry_date',
+            ])
             ->orderByDesc('dispensed_at')
-            ->limit(50)
-            ->get();
+            ->paginate(15)
+            ->withQueryString();
 
         $expiredBatches = StockIn::with('medicine:medicine_id,generic_name,brand_name')
             ->where('expiry_date', '<', now()->toDateString())
@@ -31,32 +35,31 @@ class DispensingController extends Controller
 
         $expiringBatches = StockIn::with('medicine:medicine_id,generic_name,brand_name')
             ->where('expiry_date', '<=', now()->addDays(30)->toDateString())
+            ->where('expiry_date', '>=', now()->toDateString())
+            ->where('remaining_quantity', '>', 0)
             ->orderBy('expiry_date')
             ->get();
 
         return Inertia::render('Dispensing/Index', [
-            'medicines' => $medicines,
-            'stockOutRecords' => $stockOutRecords,
-            'expiredBatches' => $expiredBatches,
-            'expiringBatches' => $expiringBatches,
-            'hasExpired' => $expiredBatches->isNotEmpty(),
-            'hasExpiringSoon' => $expiringBatches->where('expiry_date', '>=', now()->toDateString())->isNotEmpty(),
+            'medicines'        => $medicines,
+            'stockOutRecords'  => $stockOutRecords,
+            'expiredBatches'   => $expiredBatches,
+            'expiringBatches'  => $expiringBatches,
+            'hasExpired'       => $expiredBatches->isNotEmpty(),
+            'hasExpiringSoon'  => $expiringBatches->isNotEmpty(),
         ]);
     }
 
-    /**
-     * FEFO multi-item dispense. Mirrors legacy stock_out action.
-     */
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'patient_name' => ['nullable', 'string', 'max:255'],
+            'patient_name'    => ['nullable', 'string', 'max:255'],
             'prescription_no' => ['nullable', 'string', 'max:255'],
-            'items' => ['required', 'array', 'min:1'],
+            'items'           => ['required', 'array', 'min:1'],
             'items.*.medicine_id' => ['required', 'integer'],
-            'items.*.quantity' => ['required', 'integer', 'min:1'],
-            'items.*.price' => ['nullable', 'numeric'],
-            'items.*.dosage' => ['nullable', 'string'],
+            'items.*.quantity'    => ['required', 'integer', 'min:1'],
+            'items.*.price'       => ['nullable', 'numeric'],
+            'items.*.dosage'      => ['nullable', 'string'],
         ]);
 
         $userId = $request->user()->user_id;
@@ -67,9 +70,7 @@ class DispensingController extends Controller
             DB::transaction(function () use ($validated, $userId, &$dispensedItems, &$totalValue) {
                 foreach ($validated['items'] as $item) {
                     $medicine = Medicine::where('medicine_id', $item['medicine_id'])->lockForUpdate()->first();
-                    if (!$medicine) {
-                        throw new \Exception('Medicine not found.');
-                    }
+                    if (! $medicine) throw new \Exception('Medicine not found.');
 
                     $quantityNeeded = (int) $item['quantity'];
 
@@ -99,22 +100,20 @@ class DispensingController extends Controller
                             ->lockForUpdate()
                             ->first();
 
-                        if (!$batch) {
-                            throw new \Exception("No available unexpired stock for '{$medicine->generic_name}'.");
-                        }
+                        if (! $batch) throw new \Exception("No available unexpired stock for '{$medicine->generic_name}'.");
 
                         $take = min($remaining, $batch->remaining_quantity);
                         $batch->decrement('remaining_quantity', $take);
 
                         StockOut::create([
-                            'medicine_id' => $medicine->medicine_id,
-                            'quantity' => $take,
-                            'dosage' => $item['dosage'] ?? '',
-                            'price' => $finalPrice,
-                            'patient_name' => $validated['patient_name'] ?? null,
-                            'prescription_no' => $validated['prescription_no'] ?? null,
-                            'dispensed_by' => $userId,
-                            'stock_in_id' => $batch->stock_in_id,
+                            'medicine_id'     => $medicine->medicine_id,
+                            'quantity'        => $take,
+                            'dosage'          => $item['dosage'] ?? '',
+                            'price'           => $finalPrice,
+                            'patient_name'    => $validated['patient_name'] ?? 'Walk-in',
+                            'prescription_no' => $validated['prescription_no'] ?? 'N/A',
+                            'dispensed_by'    => $userId,
+                            'stock_in_id'     => $batch->stock_in_id,
                         ]);
 
                         $itemTotal += $take * $finalPrice;
@@ -126,8 +125,11 @@ class DispensingController extends Controller
                     $dispensedItems[] = "{$quantityNeeded} x {$medicine->generic_name}";
                 }
 
-                AuditLog::record($userId, 'STOCK_OUT', 'Dispensed ' . implode(', ', $dispensedItems) .
-                    ' to patient: ' . ($validated['patient_name'] ?: 'Walk-in'));
+                AuditLog::record(
+                    $userId,
+                    'STOCK_OUT',
+                    'Dispensed ' . implode(', ', $dispensedItems) . ' to patient: ' . ($validated['patient_name'] ?? 'Walk-in')
+                );
             });
         } catch (\Exception $e) {
             return back()->withErrors(['dispense' => $e->getMessage()]);
@@ -136,7 +138,6 @@ class DispensingController extends Controller
         return back()->with('success', 'Dispensed successfully! Total: ₱' . number_format($totalValue, 2));
     }
 
-    /** Admin-only: delete a stock-out record and restore stock. */
     public function destroy(Request $request, StockOut $stockOut)
     {
         abort_unless($request->user()->role === 'admin', 403, 'Only administrators can delete records.');
@@ -146,6 +147,7 @@ class DispensingController extends Controller
                 StockIn::where('stock_in_id', $stockOut->stock_in_id)
                     ->increment('remaining_quantity', $stockOut->quantity);
             }
+
             Medicine::where('medicine_id', $stockOut->medicine_id)
                 ->increment('current_stock', $stockOut->quantity);
 
@@ -161,11 +163,6 @@ class DispensingController extends Controller
         return back()->with('success', 'Record deleted and stock restored.');
     }
 
-    /**
-     * Admin/pharmacist: dispose selected batches entirely. Not yet wired to
-     * a button in Dispensing/Index.jsx — fixed to Inertia-compatible
-     * responses now so it's ready when needed.
-     */
     public function disposeBatches(Request $request)
     {
         abort_unless(
@@ -174,26 +171,27 @@ class DispensingController extends Controller
             'Only administrators and pharmacists can dispose batches.'
         );
 
-        $batchIds = $request->input('batch_ids', []);
-        if (empty($batchIds)) {
-            return back()->withErrors(['dispose' => 'No batches selected.']);
-        }
+        $data = $request->validate([
+            'batch_ids'   => ['required', 'array', 'min:1'],
+            'batch_ids.*' => ['integer', 'exists:stock_in,stock_in_id'],
+        ]);
 
-        $userId = $request->user()->user_id;
-
-        DB::transaction(function () use ($batchIds, $userId) {
-            foreach ($batchIds as $stockInId) {
+        DB::transaction(function () use ($data, $request) {
+            foreach ($data['batch_ids'] as $stockInId) {
                 $batch = StockIn::where('stock_in_id', (int) $stockInId)->lockForUpdate()->first();
-                if (!$batch) continue;
+                if (! $batch) continue;
 
                 Medicine::where('medicine_id', $batch->medicine_id)
                     ->decrement('current_stock', $batch->remaining_quantity);
 
                 StockOut::where('stock_in_id', $batch->stock_in_id)->delete();
 
-                AuditLog::record($userId, 'DISPOSE_BATCH',
+                AuditLog::record(
+                    $request->user()->user_id,
+                    'DISPOSE_BATCH',
                     "Disposed batch {$batch->batch_no} (ID {$batch->stock_in_id}), removed {$batch->remaining_quantity} units",
-                    $batch->medicine_id);
+                    $batch->medicine_id
+                );
 
                 $batch->delete();
             }
@@ -202,44 +200,46 @@ class DispensingController extends Controller
         return back()->with('success', 'Selected batches disposed.');
     }
 
-    /**
-     * Dispose a single expired batch. Not yet wired to a button — fixed to
-     * Inertia-compatible response now for the same reason as above.
-     */
     public function disposeExpiredBatch(Request $request)
     {
-        $stockInId = (int) $request->input('stock_in_id', 0);
-        $userId = $request->user()->user_id;
+        abort_unless(
+            in_array($request->user()->role, ['admin', 'pharmacist']),
+            403,
+            'Only administrators and pharmacists can dispose batches.'
+        );
 
-        $result = DB::transaction(function () use ($stockInId, $userId) {
-            $batch = StockIn::where('stock_in_id', $stockInId)->lockForUpdate()->first();
-            if (!$batch) return false;
+        $data = $request->validate([
+            'stock_in_id' => ['required', 'integer', 'exists:stock_in,stock_in_id'],
+        ]);
+
+        DB::transaction(function () use ($data, $request) {
+            $batch = StockIn::where('stock_in_id', $data['stock_in_id'])->lockForUpdate()->firstOrFail();
 
             Medicine::where('medicine_id', $batch->medicine_id)
                 ->decrement('current_stock', $batch->remaining_quantity);
 
-            AuditLog::record($userId, 'DISPOSE_EXPIRED',
-                "Disposed expired batch: {$batch->batch_no} (Qty: {$batch->remaining_quantity})");
+            StockOut::where('stock_in_id', $batch->stock_in_id)->delete();
+
+            AuditLog::record(
+                $request->user()->user_id,
+                'DISPOSE_EXPIRED',
+                "Disposed expired batch {$batch->batch_no} (ID {$batch->stock_in_id}), removed {$batch->remaining_quantity} units",
+                $batch->medicine_id
+            );
 
             $batch->delete();
-            return true;
         });
 
-        return $result
-            ? back()->with('success', 'Expired batch disposed successfully.')
-            : back()->withErrors(['dispose' => 'Record not found.']);
+        return back()->with('success', 'Expired batch disposed.');
     }
 
-    /** AJAX: unexpired stock total for a medicine (for the qty helper text). This one stays JSON — called via plain fetch(), not Inertia's router. */
     public function unexpiredStock(Request $request)
     {
-        $medicineId = (int) $request->query('medicine_id', 0);
-        if ($medicineId <= 0) {
-            return response()->json(['unexpiredStock' => 0]);
-        }
+        $medicineId = (int) $request->query('medicine_id');
 
         $total = StockIn::where('medicine_id', $medicineId)
             ->where('expiry_date', '>=', now()->toDateString())
+            ->where('remaining_quantity', '>', 0)
             ->sum('remaining_quantity');
 
         return response()->json(['unexpiredStock' => $total]);

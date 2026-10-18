@@ -11,13 +11,11 @@ export default defineConfig({
         react(),
     ],
     server: {
-        host: '0.0.0.0',        // ← Allow network access
+        host: 'localhost',
         port: 5173,
         strictPort: true,
-        cors: true,              // ← Allow cross-origin requests
         hmr: {
-            host: '192.168.1.39', // ← YOUR laptop's IP
-            port: 5173,
+            host: 'localhost',
         },
     },
 });

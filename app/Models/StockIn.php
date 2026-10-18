@@ -2,13 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class StockIn extends Model
 {
-    use HasFactory;
-
     protected $table = 'stock_in';
     protected $primaryKey = 'stock_in_id';
     public $timestamps = false;
@@ -19,6 +16,7 @@ class StockIn extends Model
         'batch_no',
         'expiry_date',
         'supplier',
+        'supplier_id',
         'received_by',
         'delivery_date',
         'invoice_no',
@@ -28,11 +26,12 @@ class StockIn extends Model
     ];
 
     protected $casts = [
-        'expiry_date' => 'date',
-        'delivery_date' => 'date',
-        'cost_price' => 'decimal:2',
-        'selling_price' => 'decimal:2',
-        'recorded_at' => 'datetime',
+        'expiry_date'        => 'date',
+        'delivery_date'      => 'date',
+        'recorded_at'        => 'datetime',
+        'cost_price'         => 'decimal:2',
+        'selling_price'      => 'decimal:2',
+        'remaining_quantity' => 'integer',
     ];
 
     public function medicine()
@@ -45,19 +44,19 @@ class StockIn extends Model
         return $this->belongsTo(User::class, 'received_by', 'user_id');
     }
 
-    public function stockOut()
+    public function supplier()
     {
-        return $this->hasMany(StockOut::class, 'stock_in_id', 'stock_in_id');
+        return $this->belongsTo(Supplier::class, 'supplier_id', 'supplier_id');
     }
 
     /**
-     * Batches with stock still left, oldest expiry first — this is the
-     * query FEFO dispensing (Stock Dispensing module) will build on.
+     * FEFO helper: unexpired batches for a given medicine, oldest expiry first.
      */
-    public function scopeAvailableFefo($query, int $medicineId)
+    public function scopeAvailableFebo($query, int $medicineId)
     {
         return $query->where('medicine_id', $medicineId)
             ->where('remaining_quantity', '>', 0)
-            ->orderBy('expiry_date', 'asc');
+            ->where('expiry_date', '>=', now()->toDateString())
+            ->orderBy('expiry_date');
     }
 }
