@@ -111,8 +111,8 @@ export default function Index({ suppliers, stats, filters }) {
 
             <div className="grid grid-cols-3 gap-4">
                 <StatCard icon="fa-truck"              label="Total Suppliers" value={stats.total} />
-                <StatCard icon="fa-circle-check"       label="Active"          value={stats.active}   color="#2E7D64" />
-                <StatCard icon="fa-circle-pause"       label="Inactive"        value={stats.inactive} color="#E67E22" />
+                <StatCard icon="fa-circle-check"       label="Active"          value={stats.active}   tone="success" />
+                <StatCard icon="fa-circle-pause"       label="Inactive"        value={stats.inactive} tone="warning" />
             </div>
 
             <form onSubmit={applyFilters} className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-white rounded-[15px] border border-eggshell p-4">

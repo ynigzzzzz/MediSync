@@ -30,12 +30,7 @@ const SelectContent = forwardRef(({ className, children, position = 'popper', ..
         <SelectPrimitive.Content
             ref={ref}
             position={position}
-            className={cn(
-                'z-50 min-w-[8rem] overflow-hidden rounded-lg border border-eggshell bg-white shadow-lg',
-                'data-[state=open]:animate-in data-[state=closed]:animate-out',
-                position === 'popper' && 'translate-y-1',
-                className,
-            )}
+            className={cn('z-50 min-w-[8rem] overflow-hidden rounded-lg border border-eggshell bg-white shadow-lg', className)}
             {...props}
         >
             <SelectPrimitive.Viewport className="p-1">{children}</SelectPrimitive.Viewport>
@@ -49,7 +44,7 @@ const SelectItem = forwardRef(({ className, children, ...props }, ref) => (
         ref={ref}
         className={cn(
             'relative flex cursor-pointer select-none items-center rounded-md px-3 py-1.5 text-sm text-charcoal-blue outline-none',
-            'data-[highlighted]:bg-[rgba(255,183,206,0.35)] data-[state=checked]:bg-cherry-blossom data-[state=checked]:font-medium',
+            'data-[highlighted]:bg-cherry-blossom/35 data-[state=checked]:bg-cherry-blossom data-[state=checked]:font-medium',
             className,
         )}
         {...props}

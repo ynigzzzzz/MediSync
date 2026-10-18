@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
@@ -27,7 +28,8 @@ class UserManagementController extends Controller
             })
             ->when($filterRole !== '' && $filterRole !== 'all', fn ($q) => $q->where('role', $filterRole))
             ->orderBy('full_name')
-            ->get(['user_id', 'full_name', 'email', 'role', 'status', 'profile_image', 'created_at']);
+            ->paginate(15)
+            ->withQueryString();
 
         return Inertia::render('UserManagement/Index', [
             'users' => $users,
@@ -71,21 +73,55 @@ class UserManagementController extends Controller
             $request->user()->user_id,
             'CREATE_USER',
             "Added new user: {$user->full_name} ({$user->email}) with role {$user->role}",
-            $user->user_id  // ← Make sure this is the 4th parameter
+            $user->user_id
         );
 
         return back()->with('success', "User \"{$user->full_name}\" has been added successfully.");
     }
 
-    /**
-     * Toggle active/inactive — matches the original's self-protection rule.
-     */
+    public function update(Request $request, User $user)
+    {
+        abort_unless($request->user()->role === 'admin', 403);
+
+        $validated = $request->validate([
+            'full_name' => ['required', 'string', 'max:100'],
+            'email' => ['required', 'email', 'max:100', Rule::unique('users', 'email')->ignore($user->user_id, 'user_id')],
+            'password' => ['nullable', 'string', 'min:6'],
+            'role' => ['required', Rule::in(['admin', 'pharmacist', 'assistant'])],
+            'status' => ['required', Rule::in(['active', 'inactive'])],
+            'profile_image' => ['nullable', 'image', 'max:2048'],
+        ]);
+
+        if ($request->hasFile('profile_image')) {
+            if ($user->profile_image) {
+                Storage::disk('public')->delete($user->profile_image);
+            }
+            $validated['profile_image'] = $request->file('profile_image')->store('profiles', 'public');
+        }
+
+        if (!empty($validated['password'])) {
+            $validated['password_hash'] = Hash::make($validated['password']);
+        }
+        unset($validated['password']);
+
+        $user->update($validated);
+
+        AuditLog::record(
+            $request->user()->user_id,
+            'UPDATE_USER',
+            "Updated user: {$user->full_name} ({$user->email})",
+            $user->user_id
+        );
+
+        return back()->with('success', "User \"{$user->full_name}\" has been updated.");
+    }
+
     public function toggleStatus(Request $request, User $user)
     {
         abort_unless($request->user()->role === 'admin', 403);
 
         if ($user->user_id === $request->user()->user_id) {
-            return response()->json(['success' => false, 'message' => 'You cannot change your own status.']);
+            return back()->withErrors(['message' => 'You cannot change your own status.']);
         }
 
         $newStatus = $user->status === 'active' ? 'inactive' : 'active';
@@ -94,9 +130,31 @@ class UserManagementController extends Controller
         AuditLog::record(
             $request->user()->user_id,
             'TOGGLE_USER_STATUS',
-            "Set user {$user->full_name} status to {$newStatus}"
+            "Set user {$user->full_name} status to {$newStatus}",
+            $user->user_id
         );
 
-        return response()->json(['success' => true, 'new_status' => $newStatus]);
+        return back()->with('success', "User status changed to {$newStatus}.");
+    }
+
+    public function destroy(Request $request, User $user)
+    {
+        abort_unless($request->user()->role === 'admin', 403);
+        
+        if ($user->user_id === $request->user()->user_id) {
+            return back()->withErrors(['message' => 'You cannot delete your own account.']);
+        }
+
+        $name = $user->full_name;
+        $id = $user->user_id;
+        $user->delete();
+
+        AuditLog::record(
+            $request->user()->user_id,
+            'DELETE_USER',
+            "Deleted user: {$name} (ID {$id})"
+        );
+
+        return back()->with('success', 'User deleted successfully.');
     }
 }

@@ -3,38 +3,32 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     LineChart, Line,
 } from 'recharts';
-
-const PALETTE = {
-    cherry: '#FFB7CE',
-    rose: '#764248',
-    charcoal: '#2C3E50',
-    green: '#2E7D64',
-    orange: '#E67E22',
-    red: '#DC3545',
-};
+import { CHART_COLORS } from '@/lib/chart-palette';
 
 const AXIS_PROPS = {
-    stroke: PALETTE.charcoal,
+    stroke: CHART_COLORS.charcoal,
     fontSize: 12,
     tickLine: false,
-    axisLine: { stroke: '#DFE2CF' },
+    axisLine: { stroke: CHART_COLORS.eggshell },
 };
 
-export function ReportBarChart({ data, xKey, yKey, label, color = PALETTE.cherry, height = 260 }) {
+const TOOLTIP_STYLE = {
+    borderRadius: 10,
+    border: `1px solid ${CHART_COLORS.eggshell}`,
+    fontSize: 12,
+};
+
+const LEGEND_STYLE = { fontSize: 12 };
+
+export function ReportBarChart({ data, xKey, yKey, label, color = CHART_COLORS.cherry, height = 260 }) {
     return (
         <ResponsiveContainer width="100%" height={height}>
             <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#DFE2CF" />
+                <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.eggshell} />
                 <XAxis dataKey={xKey} {...AXIS_PROPS} />
                 <YAxis {...AXIS_PROPS} />
-                <Tooltip
-                    contentStyle={{
-                        borderRadius: 10,
-                        border: '1px solid #DFE2CF',
-                        fontSize: 12,
-                    }}
-                />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                <Legend wrapperStyle={LEGEND_STYLE} />
                 <Bar dataKey={yKey} name={label} fill={color} radius={[6, 6, 0, 0]} />
             </BarChart>
         </ResponsiveContainer>
@@ -45,17 +39,11 @@ export function ReportLineChart({ data, xKey, series, height = 260 }) {
     return (
         <ResponsiveContainer width="100%" height={height}>
             <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#DFE2CF" />
+                <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.eggshell} />
                 <XAxis dataKey={xKey} {...AXIS_PROPS} />
                 <YAxis {...AXIS_PROPS} />
-                <Tooltip
-                    contentStyle={{
-                        borderRadius: 10,
-                        border: '1px solid #DFE2CF',
-                        fontSize: 12,
-                    }}
-                />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                <Legend wrapperStyle={LEGEND_STYLE} />
                 {series.map((s) => (
                     <Line
                         key={s.key}

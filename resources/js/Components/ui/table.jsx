@@ -17,11 +17,7 @@ const TableBody = forwardRef(({ className, ...props }, ref) => (
 TableBody.displayName = 'TableBody';
 
 const TableRow = forwardRef(({ className, ...props }, ref) => (
-    <tr
-        ref={ref}
-        className={cn('border-b border-eggshell last:border-0 hover:bg-[rgba(223,226,207,0.3)]', className)}
-        {...props}
-    />
+    <tr ref={ref} className={cn('border-b border-eggshell last:border-0 hover:bg-eggshell/30', className)} {...props} />
 ));
 TableRow.displayName = 'TableRow';
 

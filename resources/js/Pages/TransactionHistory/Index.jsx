@@ -58,8 +58,8 @@ export default function Index({
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <StatCard icon="fa-receipt" label="Total Transactions" value={totalTransactions.toLocaleString()} />
-                <StatCard icon="fa-arrow-down" label="Stock-In (This Month)" value={stockInTotal.toLocaleString()} color="#2E7D64" />
-                <StatCard icon="fa-arrow-up" label="Stock-Out (This Month)" value={stockOutTotal.toLocaleString()} color="#764248" />
+                <StatCard icon="fa-arrow-down" label="Stock-In (This Month)" value={stockInTotal.toLocaleString()} tone="success" />
+                <StatCard icon="fa-arrow-up" label="Stock-Out (This Month)" value={stockOutTotal.toLocaleString()} tone="rose" />
                 <StatCard icon="fa-chart-line" label="Net Change" value={(stockInTotal - stockOutTotal).toLocaleString()} />
             </div>
 
@@ -119,10 +119,14 @@ export default function Index({
                                 <td className="p-3 text-charcoal-blue">{(transactions.from ?? 1) + i}</td>
                                 <td className="text-charcoal-blue">{new Date(t.date_time).toLocaleString()}</td>
                                 <td>
-                                    <span className="inline-block px-2.5 py-1 rounded-full text-xs font-semibold text-white"
-                                        style={{ backgroundColor: t.transaction_type === 'Stock-In' ? '#2E7D64' : '#764248' }}>
-                                        {t.transaction_type}
-                                    </span>
+                                    <span
+    className={
+        'inline-block px-2.5 py-1 rounded-full text-xs font-semibold text-white ' +
+        (t.transaction_type === 'Stock-In' ? 'bg-success-green' : 'bg-burnt-rose')
+    }
+>
+    {t.transaction_type}
+</span>
                                 </td>
                                 <td><strong className="text-charcoal-blue">{t.generic_name}</strong><br /><small className="text-gray-500">{t.brand_name}</small></td>
                                 <td className="text-charcoal-blue">{t.dosage ?? 'N/A'}</td>

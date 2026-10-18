@@ -9,37 +9,47 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
-class MedicineListController extends Controller
+class MedicineCatalogController extends Controller
 {
     public function index(Request $request)
-    {
-        $filter = in_array($request->query('filter'), ['lowstock', 'outofstock'], true)
-            ? $request->query('filter')
-            : 'all';
+{
+    $filter = in_array($request->query('filter'), ['lowstock', 'outofstock', 'expiring'], true)
+        ? $request->query('filter')
+        : 'all';
 
+    if ($filter === 'expiring') {
+        $expiringBatches = StockIn::with('medicine:medicine_id,generic_name,brand_name')
+            ->where('remaining_quantity', '>', 0)
+            ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
+            ->orderBy('expiry_date')
+            ->paginate(15)->withQueryString();
+            
+        $medicines = collect(); // Empty paginator for the main table
+        $totalMedicines = Medicine::count();
+        $lowStockCount = Medicine::whereBetween('current_stock', [1, 49])->count();
+        $outOfStockCount = Medicine::where('current_stock', 0)->count();
+    } else {
         $query = Medicine::orderBy('generic_name');
-
-        if ($filter === 'lowstock') {
-            $query->whereBetween('current_stock', [1, 49]);
-        } elseif ($filter === 'outofstock') {
-            $query->where('current_stock', 0);
-        }
+        if ($filter === 'lowstock') $query->whereBetween('current_stock', [1, 49]);
+        elseif ($filter === 'outofstock') $query->where('current_stock', 0);
 
         $medicines = $query->paginate(15)->withQueryString();
-
-        // Stat-card counts are always on the FULL dataset, never the page.
-        $totalMedicines  = Medicine::count();
-        $lowStockCount   = Medicine::whereBetween('current_stock', [1, 49])->count();
+        $expiringBatches = null;
+        $totalMedicines = Medicine::count();
+        $lowStockCount = Medicine::whereBetween('current_stock', [1, 49])->count();
         $outOfStockCount = Medicine::where('current_stock', 0)->count();
-
-        return Inertia::render('MedicineList/Index', [
-            'medicines'       => $medicines,
-            'totalMedicines'  => $totalMedicines,
-            'lowStockCount'   => $lowStockCount,
-            'outOfStockCount' => $outOfStockCount,
-            'activeFilter'    => $filter,
-        ]);
     }
+
+    return Inertia::render('MedicineCatalog/Index', [
+        'medicines' => $medicines,
+        'expiringBatches' => $expiringBatches,
+        'totalMedicines' => $totalMedicines,
+        'lowStockCount' => $lowStockCount,
+        'outOfStockCount' => $outOfStockCount,
+        'activeFilter' => $filter,
+    ]);
+}
+    
 
     public function store(Request $request)
     {

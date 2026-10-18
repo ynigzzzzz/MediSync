@@ -1,0 +1,43 @@
+# Essential Everyday Command-Line Codes
+
+## 1. System Navigation & Information
+* `pwd` : Print the current working directory path.
+* `ls -la` : List all files and directories in long format, including hidden ones.
+* `cd ..` : Move up one directory level.
+* `df -h` : Display disk space usage in human-readable format.
+* `top` or `htop` : Monitor active system processes and resource usage in real-time.
+* `uname -a` : Print detailed system information (OS kernel version, architecture, etc.).
+
+## 2. File & Directory Management
+* `mkdir project` : Create a new directory named "project".
+* `touch index.html` : Create a new empty file named "index.html".
+* `cp source.txt dest.txt` : Copy a file from source to destination.
+* `cp -r folder_a folder_b` : Copy an entire directory recursively.
+* `mv old.txt new.txt` : Rename or move a file or directory.
+* `rm file.txt` : Delete a file permanently.
+* `rm -rf folder` : Force-delete a directory and all its contents recursively (use with caution).
+* `chmod 755 script.sh` : Change file permissions to readable/executable by everyone, writeable by owner.
+
+## 3. Network & Connectivity
+* `ping google.com` : Test network connectivity to a remote host.
+* `curl -I https://example.com` : Fetch the HTTP headers of a website.
+* `wget https://example.com/file.zip` : Download a file directly from a URL.
+* `ifconfig` or `ip a` : View network interface configurations and local IP addresses.
+* `netstat -tuln` : Show all active listening network ports and connections.
+
+## 4. Text Processing & Searching
+* `cat file.txt` : View the entire contents of a file in the terminal.
+* `head -n 20 file.txt` : View the first 20 lines of a file.
+* `tail -n 20 file.txt` : View the last 20 lines of a file.
+* `grep "error" server.log` : Search for the string "error" inside a specific log file.
+* `find . -name "*.md"` : Find all Markdown files within the current directory and its subfolders.
+* `nano file.txt` : Open a simple command-line text editor to modify a file.
+
+## 5. Basic Git Commands
+* `git init` : Initialize a new local Git repository.
+* `git clone <url>` : Clone a remote repository to your local machine.
+* `git status` : Check the current state of your working directory and staged changes.
+* `git add .` : Stage all current changes for the next commit.
+* `git commit -m "Commit message"` : Commit staged changes with a descriptive message.
+* `git push origin main` : Push local commits to the main branch of your remote repository.
+* `git pull` : Fetch and merge the latest changes from the remote repository.

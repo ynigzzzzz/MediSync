@@ -11,10 +11,7 @@ const PopoverContent = forwardRef(({ className, align = 'end', sideOffset = 8, .
             ref={ref}
             align={align}
             sideOffset={sideOffset}
-            className={cn(
-                'z-50 w-96 rounded-[15px] border border-eggshell bg-white p-0 shadow-lg outline-none',
-                className,
-            )}
+            className={cn('z-50 w-96 rounded-[15px] border border-eggshell bg-white p-0 shadow-lg outline-none', className)}
             {...props}
         />
     </PopoverPrimitive.Portal>

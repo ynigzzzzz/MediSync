@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
-class StockInController extends Controller
+class StockReceivingController extends Controller
 {
     public function index(Request $request)
     {
@@ -22,7 +22,6 @@ class StockInController extends Controller
             ->orderBy('generic_name')
             ->get();
 
-        // Dropdown source for the Supplier field — active suppliers only.
         $suppliers = Supplier::where('status', 'active')
             ->orderBy('name')
             ->get(['supplier_id', 'name']);
@@ -84,23 +83,15 @@ class StockInController extends Controller
             'delivery_date' => ['required', 'date'],
             'cost_price'    => ['required', 'numeric', 'min:0.01'],
             'sell_price'    => ['nullable', 'numeric', 'min:0'],
-        ], [
-            'supplier.required_without' => 'Please pick a supplier or type one in.',
         ]);
 
-        // If a supplier record was chosen, keep the free-text column in sync
-        // with the supplier's name so Transaction History (which reads the
-        // free-text field) still shows the correct label.
         if (! empty($data['supplier_id'])) {
             $supplier = Supplier::find($data['supplier_id']);
-            if ($supplier) {
-                $data['supplier'] = $supplier->name;
-            }
+            if ($supplier) $data['supplier'] = $supplier->name;
         }
 
         DB::transaction(function () use ($data, $request) {
             $medicine = Medicine::where('medicine_id', $data['medicine_id'])->lockForUpdate()->firstOrFail();
-
             $medicine->increment('current_stock', $data['quantity']);
 
             if (($data['sell_price'] ?? 0) > 0 && (float) $medicine->price !== (float) $data['sell_price']) {
@@ -125,7 +116,7 @@ class StockInController extends Controller
             AuditLog::record(
                 $request->user()->user_id,
                 'STOCK_IN',
-                "Added {$data['quantity']} units of medicine ID {$data['medicine_id']} (cost: ₱{$data['cost_price']}, selling: ₱" . ($data['sell_price'] ?? 0) . ", supplier: " . ($data['supplier'] ?? '—') . ")",
+                "Added {$data['quantity']} units of medicine ID {$data['medicine_id']} (supplier: " . ($data['supplier'] ?? '—') . ")",
                 $data['medicine_id']
             );
         });
@@ -138,15 +129,8 @@ class StockInController extends Controller
         abort_unless($request->user()->role === 'admin', 403, 'Only administrators can delete records.');
 
         DB::transaction(function () use ($stockIn, $request) {
-            Medicine::where('medicine_id', $stockIn->medicine_id)
-                ->decrement('current_stock', $stockIn->quantity);
-
-            AuditLog::record(
-                $request->user()->user_id,
-                'DELETE_STOCK_IN',
-                "Deleted stock-in record ID {$stockIn->stock_in_id} and removed {$stockIn->quantity} units from inventory"
-            );
-
+            Medicine::where('medicine_id', $stockIn->medicine_id)->decrement('current_stock', $stockIn->quantity);
+            AuditLog::record($request->user()->user_id, 'DELETE_STOCK_IN', "Deleted stock-in record ID {$stockIn->stock_in_id}");
             $stockIn->delete();
         });
 
@@ -155,11 +139,7 @@ class StockInController extends Controller
 
     public function disposeBatches(Request $request)
     {
-        abort_unless(
-            in_array($request->user()->role, ['admin', 'pharmacist']),
-            403,
-            'Only administrators and pharmacists can dispose batches.'
-        );
+        abort_unless(in_array($request->user()->role, ['admin', 'pharmacist']), 403);
 
         $data = $request->validate([
             'batch_ids'   => ['required', 'array', 'min:1'],
@@ -168,20 +148,10 @@ class StockInController extends Controller
 
         DB::transaction(function () use ($data, $request) {
             $batches = StockIn::whereIn('stock_in_id', $data['batch_ids'])->lockForUpdate()->get();
-
             foreach ($batches as $batch) {
-                Medicine::where('medicine_id', $batch->medicine_id)
-                    ->decrement('current_stock', $batch->remaining_quantity);
-
+                Medicine::where('medicine_id', $batch->medicine_id)->decrement('current_stock', $batch->remaining_quantity);
                 StockOut::where('stock_in_id', $batch->stock_in_id)->delete();
-
-                AuditLog::record(
-                    $request->user()->user_id,
-                    'DISPOSE_BATCH',
-                    "Disposed batch {$batch->batch_no} (ID {$batch->stock_in_id}), removed {$batch->remaining_quantity} units",
-                    $batch->medicine_id
-                );
-
+                AuditLog::record($request->user()->user_id, 'DISPOSE_BATCH', "Disposed batch {$batch->batch_no}", $batch->medicine_id);
                 $batch->delete();
             }
         });

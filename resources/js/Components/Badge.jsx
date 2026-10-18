@@ -1,36 +1,36 @@
-/**
- * Shared pill badge used for stock status, transaction type, user role, and
- * account status across every page. Pass either a known `tone` (maps to the
- * brand palette) or a custom `color` hex for one-off cases.
- */
-const TONES = {
-    success: '#2E7D64',   // success-green: active, stock-in, admin-adjacent positive states
-    warning: '#E67E22',   // warning-orange: low stock, inactive, expiring soon
-    danger: '#DC3545',    // critical-red: out of stock, errors
-    rose: '#764248',      // burnt-rose: stock-out, admin role
-    neutral: '#2C3E50',   // charcoal-blue: assistant role, neutral info
-};
+import { cva } from 'class-variance-authority';
+import { cn } from '@/lib/utils';
 
-export default function Badge({ tone = 'neutral', color, children, outline = false }) {
-    const resolved = color ?? TONES[tone] ?? TONES.neutral;
+const badgeVariants = cva(
+    'inline-block px-2.5 py-1 rounded-full text-[0.7rem] font-semibold capitalize whitespace-nowrap',
+    {
+        variants: {
+            tone: {
+                success: 'bg-success-green text-white',
+                warning: 'bg-warning-orange text-white',
+                danger: 'bg-critical-red text-white',
+                rose: 'bg-burnt-rose text-white',
+                neutral: 'bg-charcoal-blue text-white',
+            },
+            outline: {
+                true: 'bg-opacity-10 border',
+                false: '',
+            },
+        },
+        compoundVariants: [
+            { tone: 'success', outline: true, className: 'bg-success-green/10 text-success-green border-success-green/25' },
+            { tone: 'warning', outline: true, className: 'bg-warning-orange/10 text-warning-orange border-warning-orange/25' },
+            { tone: 'danger', outline: true, className: 'bg-critical-red/10 text-critical-red border-critical-red/25' },
+            { tone: 'rose', outline: true, className: 'bg-burnt-rose/10 text-burnt-rose border-burnt-rose/25' },
+            { tone: 'neutral', outline: true, className: 'bg-charcoal-blue/10 text-charcoal-blue border-charcoal-blue/25' },
+        ],
+        defaultVariants: {
+            tone: 'neutral',
+            outline: false,
+        },
+    },
+);
 
-    const style = outline
-        ? {
-              backgroundColor: `${resolved}1F`, // ~12% opacity
-              color: resolved,
-              border: `1px solid ${resolved}40`,
-          }
-        : {
-              backgroundColor: resolved,
-              color: '#fff',
-          };
-
-    return (
-        <span
-            className="inline-block px-2.5 py-1 rounded-full text-[0.7rem] font-semibold capitalize whitespace-nowrap"
-            style={style}
-        >
-            {children}
-        </span>
-    );
+export default function Badge({ tone = 'neutral', children, outline = false, className = '' }) {
+    return <span className={cn(badgeVariants({ tone, outline }), className)}>{children}</span>;
 }

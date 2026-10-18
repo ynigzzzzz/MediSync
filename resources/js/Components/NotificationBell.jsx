@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/Components/ui/popover';
 
-// icon + colour per notification type (palette colours)
+// Tailwind tone per notification type — pure classNames, no inline styles
 const TYPE_STYLE = {
-    out_of_stock: { icon: 'fa-circle-xmark', color: '#DC3545' },
-    low_stock: { icon: 'fa-triangle-exclamation', color: '#E67E22' },
-    expiring: { icon: 'fa-hourglass-half', color: '#E67E22' },
-    expired: { icon: 'fa-ban', color: '#DC3545' },
+    out_of_stock: { icon: 'fa-circle-xmark',        unread: 'bg-critical-red/20 text-critical-red',     read: 'bg-critical-red/10 text-critical-red/60' },
+    low_stock:    { icon: 'fa-triangle-exclamation', unread: 'bg-warning-orange/20 text-warning-orange', read: 'bg-warning-orange/10 text-warning-orange/60' },
+    expiring:     { icon: 'fa-hourglass-half',       unread: 'bg-warning-orange/20 text-warning-orange', read: 'bg-warning-orange/10 text-warning-orange/60' },
+    expired:      { icon: 'fa-ban',                  unread: 'bg-critical-red/20 text-critical-red',     read: 'bg-critical-red/10 text-critical-red/60' },
 };
 
 function timeAgo(iso) {
@@ -79,23 +79,17 @@ export default function NotificationBell() {
                         items.map((n) => {
                             const isUnread = !n.read_at;
                             const style = TYPE_STYLE[n.type] ?? TYPE_STYLE.low_stock;
+                            const toneClass = isUnread ? style.unread : style.read;
                             return (
                                 <button
                                     key={n.notification_id}
                                     onClick={() => openItem(n)}
                                     className={
                                         'w-full text-left flex gap-3 px-4 py-3 border-b border-eggshell last:border-0 transition-colors ' +
-                                        (isUnread ? 'bg-[#FFF0F5] hover:bg-[#FFE4EE]' : 'bg-white hover:bg-gray-50')
+                                        (isUnread ? 'bg-cherry-blossom/10 hover:bg-cherry-blossom/15' : 'bg-white hover:bg-gray-50')
                                     }
                                 >
-                                    <div
-                                        className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center"
-                                        style={{
-                                            backgroundColor: `${style.color}${isUnread ? '22' : '12'}`,
-                                            color: style.color,
-                                            opacity: isUnread ? 1 : 0.6,
-                                        }}
-                                    >
+                                    <div className={`w-9 h-9 shrink-0 rounded-full flex items-center justify-center ${toneClass}`}>
                                         <i className={`fas ${style.icon} text-sm`} />
                                     </div>
 
