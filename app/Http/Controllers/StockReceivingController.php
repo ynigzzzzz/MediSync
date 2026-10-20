@@ -18,7 +18,7 @@ class StockReceivingController extends Controller
     {
         abort_if($request->user()->role === 'assistant', 403);
 
-        $medicines = Medicine::select('medicine_id', 'generic_name', 'brand_name', 'current_stock', 'price')
+                $medicines = Medicine::select('medicine_id', 'generic_name', 'brand_name', 'current_stock', 'price', 'dosage')
             ->orderBy('generic_name')
             ->get();
 
@@ -79,10 +79,10 @@ class StockReceivingController extends Controller
             'expiry_date'   => ['required', 'date', 'after:today'],
             'supplier_id'   => ['nullable', 'integer', Rule::exists('suppliers', 'supplier_id')],
             'supplier'      => ['required_without:supplier_id', 'nullable', 'string', 'max:100'],
-            'invoice_no'    => ['required', 'string', 'max:50'],
             'delivery_date' => ['required', 'date'],
             'cost_price'    => ['required', 'numeric', 'min:0.01'],
             'sell_price'    => ['nullable', 'numeric', 'min:0'],
+            'dosage'        => ['nullable', 'string', 'max:50'], // <-- Added Dosage
         ]);
 
         if (! empty($data['supplier_id'])) {
@@ -94,8 +94,17 @@ class StockReceivingController extends Controller
             $medicine = Medicine::where('medicine_id', $data['medicine_id'])->lockForUpdate()->firstOrFail();
             $medicine->increment('current_stock', $data['quantity']);
 
+                        // Update the medicine's dosage and price if provided
+            $updates = [];
             if (($data['sell_price'] ?? 0) > 0 && (float) $medicine->price !== (float) $data['sell_price']) {
-                $medicine->update(['price' => $data['sell_price']]);
+                $updates['price'] = $data['sell_price'];
+            }
+            // ADD THIS LINE:
+            if (($data['cost_price'] ?? 0) > 0) {
+                $updates['cost_price'] = $data['cost_price'];
+            }
+            if (!empty($data['dosage']) && $medicine->dosage !== $data['dosage']) {
+                $updates['dosage'] = $data['dosage'];
             }
 
             StockIn::create([
@@ -107,7 +116,7 @@ class StockReceivingController extends Controller
                 'supplier_id'        => $data['supplier_id'] ?? null,
                 'received_by'        => $request->user()->user_id,
                 'delivery_date'      => $data['delivery_date'],
-                'invoice_no'         => $data['invoice_no'],
+                'invoice_no'         => 'N/A', // Defaulted since we removed it from UI
                 'cost_price'         => $data['cost_price'],
                 'selling_price'      => $data['sell_price'] ?? 0,
                 'remaining_quantity' => $data['quantity'],
@@ -116,7 +125,7 @@ class StockReceivingController extends Controller
             AuditLog::record(
                 $request->user()->user_id,
                 'STOCK_IN',
-                "Added {$data['quantity']} units of medicine ID {$data['medicine_id']} (supplier: " . ($data['supplier'] ?? '—') . ")",
+                "Added {$data['quantity']} units of {$medicine->generic_name} (supplier: " . ($data['supplier'] ?? '—') . ")",
                 $data['medicine_id']
             );
         });

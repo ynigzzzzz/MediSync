@@ -12,55 +12,64 @@ use Inertia\Inertia;
 class MedicineCatalogController extends Controller
 {
     public function index(Request $request)
-{
-    $filter = in_array($request->query('filter'), ['lowstock', 'outofstock', 'expiring'], true)
-        ? $request->query('filter')
-        : 'all';
+    {
+        $filter = in_array($request->query('filter'), ['lowstock', 'outofstock', 'expiring'], true)
+            ? $request->query('filter')
+            : 'all';
 
-    if ($filter === 'expiring') {
-        $expiringBatches = StockIn::with('medicine:medicine_id,generic_name,brand_name')
-            ->where('remaining_quantity', '>', 0)
-            ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
-            ->orderBy('expiry_date')
-            ->paginate(15)->withQueryString();
+        // Fetch unique categories and types for the searchable dropdowns
+        $categories = Medicine::whereNotNull('category')->where('category', '!=', '')->distinct()->pluck('category');
+        $types = Medicine::whereNotNull('type')->where('type', '!=', '')->distinct()->pluck('type');
+
+        if ($filter === 'expiring') {
+            $expiringBatches = StockIn::with('medicine:medicine_id,generic_name,brand_name')
+                ->where('remaining_quantity', '>', 0)
+                ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
+                ->orderBy('expiry_date')
+                ->paginate(15)->withQueryString();
+                
+            $medicines = collect(); 
+            $totalMedicines = Medicine::count();
+            $lowStockCount = Medicine::whereBetween('current_stock', [1, 49])->count();
+            $outOfStockCount = Medicine::where('current_stock', 0)->count();
+        } else {
+            $query = Medicine::orderBy('generic_name');
             
-        $medicines = collect(); // Empty paginator for the main table
-        $totalMedicines = Medicine::count();
-        $lowStockCount = Medicine::whereBetween('current_stock', [1, 49])->count();
-        $outOfStockCount = Medicine::where('current_stock', 0)->count();
-    } else {
-        $query = Medicine::orderBy('generic_name');
-        if ($filter === 'lowstock') $query->whereBetween('current_stock', [1, 49]);
-        elseif ($filter === 'outofstock') $query->where('current_stock', 0);
+            if ($filter === 'lowstock') {
+                $query->whereBetween('current_stock', [1, 49]);
+            } elseif ($filter === 'outofstock') {
+                $query->where('current_stock', 0);
+            }
 
-        $medicines = $query->paginate(15)->withQueryString();
-        $expiringBatches = null;
-        $totalMedicines = Medicine::count();
-        $lowStockCount = Medicine::whereBetween('current_stock', [1, 49])->count();
-        $outOfStockCount = Medicine::where('current_stock', 0)->count();
+            $medicines = $query->paginate(15)->withQueryString();
+            $expiringBatches = null;
+            $totalMedicines = Medicine::count();
+            $lowStockCount = Medicine::whereBetween('current_stock', [1, 49])->count();
+            $outOfStockCount = Medicine::where('current_stock', 0)->count();
+        }
+
+        return Inertia::render('MedicineCatalog/Index', [
+            'medicines' => $medicines,
+            'expiringBatches' => $expiringBatches,
+            'totalMedicines' => $totalMedicines,
+            'lowStockCount' => $lowStockCount,
+            'outOfStockCount' => $outOfStockCount,
+            'activeFilter' => $filter,
+            'categories' => $categories,
+            'types' => $types,
+        ]);
     }
-
-    return Inertia::render('MedicineCatalog/Index', [
-        'medicines' => $medicines,
-        'expiringBatches' => $expiringBatches,
-        'totalMedicines' => $totalMedicines,
-        'lowStockCount' => $lowStockCount,
-        'outOfStockCount' => $outOfStockCount,
-        'activeFilter' => $filter,
-    ]);
-}
-    
 
     public function store(Request $request)
     {
         abort_if($request->user()->role === 'assistant', 403, 'You do not have permission to add medicines.');
 
-        $validated = $request->validate([
+                $validated = $request->validate([
             'generic_name' => ['required', 'string', 'max:255'],
-            'brand_name'   => ['nullable', 'string', 'max:255'],
-            'type'         => ['nullable', 'string', 'max:255'],
-            'category'     => ['nullable', 'string', 'max:255'],
-            'dosage'       => ['nullable', 'string', 'max:255'],
+            'brand_name'   => ['required', 'string', 'max:255'],
+            'type'         => ['required', 'string', 'max:255'],
+            'category'     => ['required', 'string', 'max:255'],
+            'dosage'       => ['required', 'string', 'max:255'],
             'price'        => ['required', 'numeric', 'min:0'],
         ]);
 

@@ -1,25 +1,33 @@
-import {
-    BarChart as RechartsBarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-} from 'recharts';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/Components/ui/chart';
+import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { CHART_COLORS } from '@/lib/chart-palette';
 
-const TICK_PROPS = { fontSize: 11, fill: CHART_COLORS.charcoal };
-
-export function BarChart({ data, xKey, yKey, label, color = CHART_COLORS.cherry, height = 260 }) {
+export function BarChart({ data, xKey, yKey, label, color = '#3B82F6' }) {
     return (
-        <ChartContainer config={{}} className={`h-[${height}px] w-full`}>
-            <RechartsBarChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.eggshell} vertical={false} />
-                <XAxis dataKey={xKey} tickLine={false} axisLine={false} tick={TICK_PROPS} tickMargin={8} />
-                <YAxis tickLine={false} axisLine={false} tick={TICK_PROPS} />
-                <ChartTooltip content={<ChartTooltipContent />} cursor={false} />
-                <Bar dataKey={yKey} name={label} fill={color} radius={[6, 6, 0, 0]} />
-            </RechartsBarChart>
-        </ChartContainer>
+        <div className="w-full h-[250px]">
+            <ResponsiveContainer width="100%" height="100%">
+                <RechartsBarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                        <linearGradient id={`bar-gradient-${label.replace(/\s/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={color} stopOpacity={1} />
+                            <stop offset="100%" stopColor={color} stopOpacity={0.3} />
+                        </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                    <XAxis dataKey={xKey} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#6B7280' }} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#6B7280' }} />
+                    <Tooltip 
+                        cursor={{ fill: '#F9FAFB' }}
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                    />
+                    <Bar 
+                        dataKey={yKey} 
+                        name={label} 
+                        fill={`url(#bar-gradient-${label.replace(/\s/g, '')})`} 
+                        radius={[6, 6, 0, 0]} 
+                        barSize={40}
+                    />
+                </RechartsBarChart>
+            </ResponsiveContainer>
+        </div>
     );
 }

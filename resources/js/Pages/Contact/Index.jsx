@@ -1,6 +1,8 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
+const inputCls = "w-full rounded-xl border border-transparent bg-[#F2F2F7] px-3 py-2 text-[14px] text-gray-900 placeholder-gray-400 focus:border-gray-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-100 transition-all";
+
 export default function ContactIndex({ inquiryTypes, prefill }) {
     const { flash } = usePage().props;
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -24,87 +26,59 @@ export default function ContactIndex({ inquiryTypes, prefill }) {
     return (
         <AuthenticatedLayout>
             <Head title="Contact / Support" />
-            <>
+            
+            <div className="mb-5">
+                <h2 className="text-2xl font-semibold tracking-tight text-gray-900">Contact / Support</h2>
+                <p className="text-[13px] text-gray-500">Report a bug, request a feature, or reach the MediSync team.</p>
+            </div>
+
+            {flash?.success && <div className="mb-4 bg-green-50 text-green-700 border border-green-200 rounded-xl p-3 text-[13px] font-medium">{flash.success}</div>}
+
+            <form onSubmit={submit} encType="multipart/form-data" className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white rounded-[16px] shadow-sm border border-gray-100 p-5 max-w-3xl">
                 <div>
-                    <h2 className="text-charcoal-blue font-semibold text-2xl mb-1">Contact / Support</h2>
-                    <p className="text-charcoal-blue opacity-70 text-sm">
-                        Report a bug, request a feature, or reach the MediSync team.
-                    </p>
+                    <label className="block text-[12px] font-semibold text-gray-700 mb-1">Full Name<span className="text-critical-red">*</span></label>
+                    <input className={inputCls} value={data.full_name} onChange={e => setData('full_name', e.target.value)} required />
+                    {errors.full_name && <p className="text-critical-red text-[11px] mt-1">{errors.full_name}</p>}
                 </div>
-
-                {flash?.success && (
-                    <div className="rounded-lg p-3 text-sm text-white bg-success-green">{flash.success}</div>
-                )}
-
-                <form onSubmit={submit} encType="multipart/form-data"
-                    className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white rounded-[15px] border border-eggshell p-5 max-w-3xl">
-                    <Field label="Full Name *" error={errors.full_name}>
-                        <input className="w-full rounded-lg border-gray-300 text-sm focus:border-cherry-blossom focus:ring-cherry-blossom"
-                            value={data.full_name} onChange={(e) => setData('full_name', e.target.value)} required />
-                    </Field>
-
-                    <Field label="Email Address *" error={errors.email}>
-                        <input type="email" className="w-full rounded-lg border-gray-300 text-sm focus:border-cherry-blossom focus:ring-cherry-blossom"
-                            value={data.email} onChange={(e) => setData('email', e.target.value)} required />
-                    </Field>
-
-                    <Field label="Contact Number" error={errors.contact_number}>
-                        <input type="tel" placeholder="e.g., +63 912 345 6789"
-                            className="w-full rounded-lg border-gray-300 text-sm focus:border-cherry-blossom focus:ring-cherry-blossom"
-                            value={data.contact_number} onChange={(e) => setData('contact_number', e.target.value)} />
-                    </Field>
-
-                    <Field label="Inquiry Type *" error={errors.inquiry_type}>
-                        <select className="w-full rounded-lg border-gray-300 text-sm focus:border-cherry-blossom focus:ring-cherry-blossom"
-                            value={data.inquiry_type} onChange={(e) => setData('inquiry_type', e.target.value)} required>
-                            <option value="">Select...</option>
-                            {Object.entries(inquiryTypes).map(([key, label]) => (
-                                <option key={key} value={key}>{label}</option>
-                            ))}
-                        </select>
-                    </Field>
-
-                    <div className="md:col-span-2">
-                        <Field label="Subject *" error={errors.subject}>
-                            <input placeholder="Brief summary of your concern"
-                                className="w-full rounded-lg border-gray-300 text-sm focus:border-cherry-blossom focus:ring-cherry-blossom"
-                                value={data.subject} onChange={(e) => setData('subject', e.target.value)} required />
-                        </Field>
-                    </div>
-
-                    <div className="md:col-span-2">
-                        <Field label="Message / Description *" error={errors.message}>
-                            <textarea rows={5} placeholder="Please provide detailed information..."
-                                className="w-full rounded-lg border-gray-300 text-sm focus:border-cherry-blossom focus:ring-cherry-blossom"
-                                value={data.message} onChange={(e) => setData('message', e.target.value)} required />
-                        </Field>
-                    </div>
-
-                    <div className="md:col-span-2">
-                        <Field label="Attach File (Optional)" error={errors.attachment}>
-                            <input type="file" className="text-sm"
-                                onChange={(e) => setData('attachment', e.target.files[0] ?? null)} />
-                        </Field>
-                    </div>
-
-                    <div className="md:col-span-2 flex justify-end">
-                        <button type="submit" disabled={processing}
-                            className="rounded-lg bg-cherry-blossom text-charcoal-blue text-sm font-medium px-5 py-2 transition-colors hover:bg-burnt-rose hover:text-white disabled:opacity-50">
-                            {processing ? 'Sending...' : 'Send Message'}
-                        </button>
-                    </div>
-                </form>
-            </>
+                <div>
+                    <label className="block text-[12px] font-semibold text-gray-700 mb-1">Email Address<span className="text-critical-red">*</span></label>
+                    <input type="email" className={inputCls} value={data.email} onChange={e => setData('email', e.target.value)} required />
+                    {errors.email && <p className="text-critical-red text-[11px] mt-1">{errors.email}</p>}
+                </div>
+                <div>
+                    <label className="block text-[12px] font-semibold text-gray-700 mb-1">Contact Number</label>
+                    <input type="tel" className={inputCls} value={data.contact_number} onChange={e => setData('contact_number', e.target.value)} />
+                    {errors.contact_number && <p className="text-critical-red text-[11px] mt-1">{errors.contact_number}</p>}
+                </div>
+                <div>
+                    <label className="block text-[12px] font-semibold text-gray-700 mb-1">Inquiry Type<span className="text-critical-red">*</span></label>
+                    <select className={inputCls} value={data.inquiry_type} onChange={e => setData('inquiry_type', e.target.value)} required>
+                        <option value="" disabled>Select...</option>
+                        {Object.entries(inquiryTypes).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                    </select>
+                    {errors.inquiry_type && <p className="text-critical-red text-[11px] mt-1">{errors.inquiry_type}</p>}
+                </div>
+                <div className="md:col-span-2">
+                    <label className="block text-[12px] font-semibold text-gray-700 mb-1">Subject<span className="text-critical-red">*</span></label>
+                    <input className={inputCls} value={data.subject} onChange={e => setData('subject', e.target.value)} required />
+                    {errors.subject && <p className="text-critical-red text-[11px] mt-1">{errors.subject}</p>}
+                </div>
+                <div className="md:col-span-2">
+                    <label className="block text-[12px] font-semibold text-gray-700 mb-1">Message / Description<span className="text-critical-red">*</span></label>
+                    <textarea rows={5} className={inputCls} value={data.message} onChange={e => setData('message', e.target.value)} required />
+                    {errors.message && <p className="text-critical-red text-[11px] mt-1">{errors.message}</p>}
+                </div>
+                <div className="md:col-span-2">
+                    <label className="block text-[12px] font-semibold text-gray-700 mb-1">Attach File (Optional)</label>
+                    <input type="file" className="text-[13px] text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-[12px] file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 transition-colors" onChange={e => setData('attachment', e.target.files[0] ? e.target.files[0] : null)} />
+                    {errors.attachment && <p className="text-critical-red text-[11px] mt-1">{errors.attachment}</p>}
+                </div>
+                <div className="md:col-span-2 flex justify-end pt-2">
+                    <button type="submit" disabled={processing} className="rounded-full bg-gray-900 text-white text-[13px] font-semibold px-6 py-2 hover:bg-black transition-colors shadow-sm disabled:opacity-50">
+                        {processing ? 'Sending...' : 'Send Message'}
+                    </button>
+                </div>
+            </form>
         </AuthenticatedLayout>
-    );
-}
-
-function Field({ label, error, children }) {
-    return (
-        <div>
-            <label className="block text-sm font-medium text-charcoal-blue mb-1">{label}</label>
-            {children}
-            {error && <p className="text-critical-red text-xs mt-1">{error}</p>}
-        </div>
     );
 }

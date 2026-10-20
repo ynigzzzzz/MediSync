@@ -18,85 +18,98 @@ export default function AuthenticatedLayout({ children }) {
     const linkClasses = (href) => {
         const isActive = currentPath.startsWith(href);
         return cn(
-            'block rounded-[10px] font-medium text-sm text-charcoal-blue transition-all duration-200',
-            'hover:bg-cherry-blossom/13 hover:translate-x-3',
+            'flex items-center rounded-xl px-4 py-2.5 text-[13px] font-medium transition-all duration-300',
             isActive
-                ? 'bg-cherry-blossom font-semibold shadow-[0_4px_14px_rgba(255,100,150,0.22)] border-l-[3.5px] border-burnt-rose pl-[16.5px] pr-5 py-3'
-                : 'px-5 py-3',
+                ? 'bg-white text-[#FF4D79] shadow-sm'
+                : 'text-gray-600 hover:bg-white/50 hover:text-gray-900',
         );
     };
 
     return (
-        <div className="min-h-screen bg-white font-sans">
-            {/* Sidebar — pink gradient shell */}
-            <aside className="fixed top-0 left-0 h-screen w-[280px] overflow-y-auto z-40 bg-sidebar-gradient border-r border-cherry-blossom/20 shadow-[4px_0_20px_rgba(255,100,150,0.08)]">
-                {/* Logo */}
-                <div className="text-center px-5 pt-6 pb-[18px] mb-5 border-b border-cherry-blossom/15">
-                    <div className="w-12 h-12 rounded-[14px] inline-flex items-center justify-center mb-2.5 bg-logo-gradient shadow-[0_4px_14px_rgba(255,100,150,0.25)]">
-                        <i className="fas fa-briefcase-medical text-burnt-rose text-xl" />
+        <div className="min-h-screen bg-[#F5F5F7] font-sans flex p-3 gap-3 overflow-hidden">
+            
+            {/* Pink Sidebar */}
+            <aside className="w-[240px] flex-shrink-0 bg-gradient-to-b from-[#FFF0F5] via-[#FFE4EE] to-[#FFD6E7] rounded-[20px] shadow-sm border border-white/50 flex flex-col h-[calc(100vh-1.5rem)] overflow-hidden z-40">
+                
+                {/* Logo Area */}
+                <div className="p-5 pb-3 flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#FFB7CE] to-[#FF4D79] flex items-center justify-center shadow-sm">
+                        <i className="fas fa-prescription-bottle-medical text-white text-sm" />
                     </div>
-                    <h3 className="text-2xl font-bold text-burnt-rose mb-0.5">MediSync</h3>
-                    <p className="text-xs text-charcoal-blue opacity-70 m-0">Pharmacy Management</p>
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-900 tracking-tight leading-none">MediSync</h3>
+                        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mt-0.5">Pharmacy</p>
+                    </div>
                 </div>
 
-                {/* Nav */}
-                <nav className="px-3.5 space-y-1">
+                {/* Nav Links */}
+                <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto scrollbar-hide">
+                    
+                    {/* 1. Daily Operations */}
                     {NAV_ITEMS.filter((item) => !item.hideFor?.includes(role)).map((item) => (
                         <Link key={item.href} href={item.href} className={linkClasses(item.href)}>
-                            <i className={`fas ${item.icon} w-7 mr-3 text-center`} />
+                            <i className={`fas ${item.icon} w-5 text-center mr-2 opacity-70`} />
                             {item.label}
                         </Link>
                     ))}
 
-                    {/* User Management — Admin only */}
-                    {role === 'admin' && (
-                        <Link href="/user-management" className={linkClasses('/user-management')}>
-                            <i className="fas fa-users w-7 mr-3 text-center" />
-                            User Management
-                        </Link>
+                    {/* Divider for Management / Admin sections */}
+                    {(role === 'admin' || role === 'pharmacist') && (
+                        <div className="pt-2 pb-1">
+                            <div className="h-px bg-gray-300/30 mx-2" />
+                        </div>
                     )}
 
-                    {/* Suppliers — Admin + Pharmacist */}
+                    {/* 2. Management */}
                     {(role === 'admin' || role === 'pharmacist') && (
                         <Link href="/suppliers" className={linkClasses('/suppliers')}>
-                            <i className="fas fa-truck w-7 mr-3 text-center" />
+                            <i className="fas fa-truck w-5 text-center mr-2 opacity-70" />
                             Suppliers
                         </Link>
                     )}
 
-                    {/* Reports — Admin only */}
                     {role === 'admin' && (
                         <Link href="/reports" className={linkClasses('/reports')}>
-                            <i className="fas fa-chart-pie w-7 mr-3 text-center" />
+                            <i className="fas fa-chart-pie w-5 text-center mr-2 opacity-70" />
                             Reports
                         </Link>
                     )}
 
+                    {/* 3. Admin Only */}
+                    {role === 'admin' && (
+                        <Link href="/user-management" className={linkClasses('/user-management')}>
+                            <i className="fas fa-users w-5 text-center mr-2 opacity-70" />
+                            User Management
+                        </Link>
+                    )}
+                </nav>
+
+                {/* Logout */}
+                <div className="p-3 mt-auto">
                     <Link
                         href="/logout"
                         method="post"
                         as="button"
-                        className="block w-full text-left rounded-[10px] font-medium text-sm text-charcoal-blue mt-4 px-5 py-3 hover:bg-cherry-blossom/13 hover:translate-x-3 transition-all duration-200"
+                        className="flex w-full items-center rounded-xl px-4 py-2.5 text-[13px] font-medium text-gray-600 transition-all duration-300 hover:bg-white/50 hover:text-red-500"
                     >
-                        <i className="fas fa-sign-out-alt w-7 mr-3 text-center" />
+                        <i className="fas fa-sign-out-alt w-5 text-center mr-2 opacity-70" />
                         Logout
                     </Link>
-                </nav>
+                </div>
             </aside>
 
-            {/* Main content — fixed left offset for the sidebar */}
-            <div className="ml-[280px] h-screen overflow-y-auto bg-white [scrollbar-gutter:stable]">
-                {/* Top bar */}
-                <div className="sticky top-0 z-30 flex justify-end items-center gap-3 px-6 py-4 border-b border-gray-100 bg-white">
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col h-[calc(100vh-1.5rem)] overflow-hidden">
+                
+                {/* Compact Top Bar */}
+                <header className="flex-shrink-0 bg-white rounded-[16px] shadow-sm border border-gray-100 flex justify-end items-center gap-3 px-4 py-2.5 mb-3 z-30">
                     <Link
                         href="/contact"
-                        aria-label="Contact / Support"
-                        title="Contact / Support"
                         className={cn(
-                            'w-10 h-10 rounded-full flex items-center justify-center transition-colors',
+                            'w-8 h-8 rounded-full flex items-center justify-center transition-colors text-xs',
                             currentPath.startsWith('/contact')
-                                ? 'bg-cherry-blossom text-burnt-rose'
-                                : 'bg-gray-100 text-charcoal-blue hover:bg-cherry-blossom hover:text-burnt-rose',
+                                ? 'bg-[#FF4D79] text-white shadow-sm'
+                                : 'bg-[#F2F2F7] text-gray-500 hover:bg-gray-200',
                         )}
                     >
                         <i className="fas fa-headset" />
@@ -104,22 +117,27 @@ export default function AuthenticatedLayout({ children }) {
 
                     <NotificationBell />
 
-                    <div className="flex items-center gap-2 ml-1">
+                    <div className="flex items-center gap-2 ml-1 pl-3 border-l border-gray-200">
                         {auth.user?.profile_image ? (
-                            <img src={`/storage/${auth.user.profile_image}`} className="w-10 h-10 rounded-full object-cover" alt="" />
+                            <img src={`/storage/${auth.user.profile_image}`} className="w-8 h-8 rounded-full object-cover shadow-sm" alt="" />
                         ) : (
-                            <div className="w-10 h-10 rounded-full bg-cherry-blossom text-charcoal-blue flex items-center justify-center font-bold">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#FFB7CE] to-[#FF4D79] text-white flex items-center justify-center font-bold text-xs shadow-sm">
                                 <i className="fas fa-user" />
                             </div>
                         )}
-                        <div className="text-sm">
-                            <div className="font-medium text-charcoal-blue">{auth.user?.full_name}</div>
-                            <div className="text-xs text-charcoal-blue opacity-60 capitalize">{role}</div>
+                        <div className="text-[13px]">
+                            <div className="font-semibold text-gray-900 leading-tight">{auth.user?.full_name}</div>
+                            <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">{role}</div>
                         </div>
                     </div>
-                </div>
+                </header>
 
-                <div className="max-w-6xl px-10 py-8 space-y-6">{children}</div>
+                {/* Scrollable Page Content */}
+                <main className="flex-1 overflow-y-auto rounded-[16px] px-2 pb-2 scrollbar-hide">
+                    <div className="max-w-[1150px] mx-auto space-y-4">
+                        {children}
+                    </div>
+                </main>
             </div>
         </div>
     );

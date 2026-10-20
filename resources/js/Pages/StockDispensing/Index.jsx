@@ -5,7 +5,10 @@ import StatCard from '@/Components/StatCard';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import Pagination from '@/Components/Pagination';
 
-export default function Index({ medicines, stockOutRecords, expiredBatches, expiringBatches, alerts }) {
+const inputCls = "w-full rounded-xl border border-transparent bg-[#F2F2F7] px-3 py-2 text-[14px] text-gray-900 placeholder-gray-400 focus:border-gray-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-100 transition-all";
+const lockedCls = "w-full rounded-xl border border-transparent bg-gray-100 px-3 py-2 text-[14px] text-gray-500 cursor-not-allowed";
+
+export default function Index({ medicines, stockOutRecords, expiredBatches = [], expiringBatches = [], alerts }) {
     const { auth, flash, errors } = usePage().props;
     const role = auth.user.role;
     const canDelete = role === 'admin';
@@ -22,6 +25,20 @@ export default function Index({ medicines, stockOutRecords, expiredBatches, expi
 
     const rows = stockOutRecords?.data ?? [];
 
+    // Auto-fill Dosage and Price when selecting a medicine
+    function handleMedicineChange(e) {
+        const id = e.target.value;
+        const med = medicines.find((m) => String(m.medicine_id) === id);
+        setMedicineId(id);
+        if (med) {
+            setDosage(med.dosage || '');
+            setPrice(med.price || '');
+        } else {
+            setDosage('');
+            setPrice('');
+        }
+    }
+
     function addToCart() {
         if (!medicineId || !quantity) return;
         const med = medicines.find((m) => String(m.medicine_id) === String(medicineId));
@@ -37,7 +54,9 @@ export default function Index({ medicines, stockOutRecords, expiredBatches, expi
         setMedicineId(''); setQuantity(''); setDosage(''); setPrice('');
     }
 
-    function removeFromCart(i) { setCart(cart.filter((_, idx) => idx !== i)); }
+    function removeFromCart(i) { 
+        setCart(cart.filter((_, idx) => idx !== i)); 
+    }
 
     function submitDispense() {
         if (cart.length === 0) return;
@@ -47,144 +66,175 @@ export default function Index({ medicines, stockOutRecords, expiredBatches, expi
             prescription_no: prescriptionNo,
             items: cart.map(({ medicine_id, quantity, price, dosage }) => ({ medicine_id, quantity, price, dosage })),
         }, {
-            onSuccess: () => { setCart([]); setPatientName(''); setPrescriptionNo(''); },
+            onSuccess: () => { 
+                setCart([]); 
+                setPatientName(''); 
+                setPrescriptionNo(''); 
+            },
             onFinish: () => setProcessing(false),
         });
     }
 
     function confirmDelete() {
-        router.delete(`/dispensing/${pendingDelete}`, { onFinish: () => setPendingDelete(null) });
+        router.delete(`/dispensing/${pendingDelete}`, { 
+            onFinish: () => setPendingDelete(null) 
+        });
     }
 
     return (
         <AuthenticatedLayout>
             <Head title="Stock Dispensing" />
-            <div>
-    <h1 className="text-2xl font-semibold text-charcoal-blue mb-1">Stock Dispensing</h1>
-    <p className="text-sm text-charcoal-blue opacity-70">Process patient transactions, manage the cart, and dispense medicines</p>
-</div>
+            
+            <div className="mb-5">
+                <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Stock Dispensing</h1>
+                <p className="text-[13px] text-gray-500">Process patient transactions, manage the cart, and dispense medicines</p>
+            </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <StatCard icon="fa-triangle-exclamation" label="Low Stock" value={alerts.lowStock} tone="warning" onClick={() => router.get('/medicine-list?filter=lowstock')} />
-                <StatCard icon="fa-circle-xmark" label="Out of Stock" value={alerts.outOfStock} tone="danger" onClick={() => router.get('/medicine-list?filter=outofstock')} />
-                <StatCard icon="fa-hourglass-half" label="Expiring (30d)" value={alerts.expiringSoon} tone="warning" onClick={() => router.get('/medicine-list?filter=expiring')} />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <StatCard icon="fa-triangle-exclamation" label="Low Stock" value={alerts?.lowStock ?? 0} tone="warning" onClick={() => router.get('/medicine-list?filter=lowstock')} />
+                <StatCard icon="fa-circle-xmark" label="Out of Stock" value={alerts?.outOfStock ?? 0} tone="danger" onClick={() => router.get('/medicine-list?filter=outofstock')} />
+                <StatCard icon="fa-hourglass-half" label="Expiring (30d)" value={alerts?.expiringSoon ?? 0} tone="warning" onClick={() => router.get('/medicine-list?filter=expiring')} />
                 <StatCard icon="fa-arrow-up" label="Recent Dispenses" value={stockOutRecords.total ?? 0} />
             </div>
 
-            {flash?.success && <div className="bg-green-50 text-green-800 border border-green-200 rounded-lg p-3 text-sm">{flash.success}</div>}
-            {errors?.dispense && <div className="bg-red-50 text-red-800 border border-red-200 rounded-lg p-3 text-sm whitespace-pre-line">{errors.dispense}</div>}
+            {flash?.success && (
+                <div className="mb-4 bg-green-50 text-green-700 border border-green-200 rounded-xl p-3 text-[13px] font-medium flex items-center gap-2">
+                    <i className="fas fa-check-circle" /> {flash.success}
+                </div>
+            )}
+            {errors?.dispense && (
+                <div className="mb-4 bg-red-50 text-red-700 border border-red-200 rounded-xl p-3 text-[13px] font-medium flex items-start gap-2">
+                    <i className="fas fa-exclamation-circle mt-0.5" />
+                    <span className="whitespace-pre-line">{errors.dispense}</span>
+                </div>
+            )}
+            
+            {(expiredBatches.length > 0 || expiringBatches.length > 0) && (
+                <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-[16px] text-[13px] shadow-sm">
+                    <h4 className="font-semibold mb-1"><i className="fas fa-triangle-exclamation mr-2" />Attention Required</h4>
+                    {expiredBatches.length > 0 && <p>{expiredBatches.length} expired batch(es) still in stock — dispose before dispensing.</p>}
+                    {expiringBatches.length > 0 && <p>{expiringBatches.length} batch(es) expiring within 30 days.</p>}
+                </div>
+            )}
 
-            <div className="bg-white rounded-[15px] border border-eggshell p-5 space-y-4">
-                <h2 className="font-medium text-charcoal-blue text-lg">Add Item</h2>
+            <div className="bg-white rounded-[16px] shadow-sm border border-gray-100 p-5 space-y-4 mb-4">
+                <h2 className="font-semibold text-gray-900 text-[15px]">Add Item to Cart</h2>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
-                        <label className="block text-sm font-medium mb-1 text-charcoal-blue">Medicine<span className="text-critical-red">*</span></label>
-                        <select className="w-full rounded-lg border-gray-300 focus:border-cherry-blossom focus:ring-cherry-blossom" value={medicineId} onChange={(e) => setMedicineId(e.target.value)}>
+                        <label className="block text-[12px] font-semibold text-gray-700 mb-1">Medicine<span className="text-critical-red">*</span></label>
+                        <select className={inputCls} value={medicineId} onChange={handleMedicineChange}>
                             <option value="" disabled>Select medicine...</option>
-                            {medicines.map((m) => <option key={m.medicine_id} value={m.medicine_id}>{m.generic_name} ({m.brand_name}) — stock {m.current_stock}</option>)}
+                            {medicines.map((m) => (
+                                <option key={m.medicine_id} value={m.medicine_id}>
+                                    {m.generic_name} ({m.brand_name}) — stock {m.current_stock}
+                                </option>
+                            ))}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium mb-1 text-charcoal-blue">Quantity<span className="text-critical-red">*</span></label>
-                        <input type="number" min="1" className="w-full rounded-lg border-gray-300 focus:border-cherry-blossom focus:ring-cherry-blossom" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+                        <label className="block text-[12px] font-semibold text-gray-700 mb-1">Quantity<span className="text-critical-red">*</span></label>
+                        <input type="number" min="1" className={inputCls} value={quantity} onChange={(e) => setQuantity(e.target.value)} />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium mb-1 text-charcoal-blue">Dosage (Optional)</label>
-                        <input type="text" className="w-full rounded-lg border-gray-300 focus:border-cherry-blossom focus:ring-cherry-blossom" value={dosage} onChange={(e) => setDosage(e.target.value)} />
+                        <label className="block text-[12px] font-semibold text-gray-700 mb-1">Dosage</label>
+                        <input type="text" readOnly className={lockedCls} value={dosage}/>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium mb-1 text-charcoal-blue">Price (Optional)</label>
-                        <input type="number" step="0.01" className="w-full rounded-lg border-gray-300 focus:border-cherry-blossom focus:ring-cherry-blossom" value={price} onChange={(e) => setPrice(e.target.value)} />
+                        <label className="block text-[12px] font-semibold text-gray-700 mb-1">Price (₱)</label>
+                        <input type="number" readOnly className={lockedCls} value={price}/>
                     </div>
                 </div>
-                <div className="flex justify-end">
-                    <button onClick={addToCart} className="rounded-lg bg-cherry-blossom text-charcoal-blue text-sm font-medium px-4 py-2 hover:bg-burnt-rose hover:text-white transition-colors">
+                <div className="flex justify-end pt-1">
+                    <button onClick={addToCart} className="rounded-full bg-gray-900 text-white text-[13px] font-semibold px-5 py-2 hover:bg-black transition-colors shadow-sm">
                         Add to Cart
                     </button>
                 </div>
             </div>
 
             {cart.length > 0 && (
-                <div className="bg-white rounded-[15px] border border-eggshell p-5 space-y-4">
-                    <h2 className="font-medium text-charcoal-blue text-lg">Cart</h2>
+                <div className="bg-white rounded-[16px] shadow-sm border border-gray-100 p-5 space-y-4 mb-4">
+                    <h2 className="font-semibold text-gray-900 text-[15px]">Current Cart</h2>
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full min-w-[600px] text-sm">
+                        <table className="w-full min-w-[600px] text-left text-[13px]">
                             <thead>
-                                <tr className="text-left border-b border-eggshell text-charcoal-blue">
-                                    <th className="p-3 whitespace-nowrap">Medicine</th>
-                                    <th className="p-3 whitespace-nowrap">Qty</th>
-                                    <th className="p-3 whitespace-nowrap">Dosage</th>
-                                    <th className="p-3 whitespace-nowrap">Price</th>
-                                    <th className="p-3 text-right whitespace-nowrap">Actions</th>
+                                <tr className="border-b border-gray-100">
+                                    <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Medicine</th>
+                                    <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Qty</th>
+                                    <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Dosage</th>
+                                    <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Price</th>
+                                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody className="divide-y divide-gray-50">
                                 {cart.map((c, i) => (
-                                    <tr key={i} className="border-b border-eggshell last:border-0 hover:bg-eggshell/30">
-                                        <td className="p-3 text-charcoal-blue font-medium">{c.generic_name} ({c.brand_name})</td>
-                                        <td className="p-3 text-charcoal-blue">{c.quantity}</td>
-                                        <td className="p-3 text-charcoal-blue">{c.dosage || '—'}</td>
-                                        <td className="p-3 text-charcoal-blue">{c.price != null ? `₱${c.price.toFixed(2)}` : '—'}</td>
-                                        <td className="p-3 text-right">
-                                            <button onClick={() => removeFromCart(i)} className="text-critical-red text-sm font-medium hover:underline">Remove</button>
+                                    <tr key={i} className="hover:bg-gray-50/50 transition-colors">
+                                        <td className="px-4 py-3 text-gray-900 font-medium">{c.generic_name} ({c.brand_name})</td>
+                                        <td className="px-4 py-3 text-gray-600">{c.quantity}</td>
+                                        <td className="px-4 py-3 text-gray-600">{c.dosage || '—'}</td>
+                                        <td className="px-4 py-3 text-gray-600">{c.price != null ? `₱${c.price.toFixed(2)}` : '—'}</td>
+                                        <td className="px-4 py-3 text-right">
+                                            <button onClick={() => removeFromCart(i)} className="text-critical-red text-[13px] font-semibold hover:underline">Remove</button>
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                         <div>
-                            <label className="block text-sm font-medium mb-1 text-charcoal-blue">Patient Name</label>
-                            <input type="text" className="w-full rounded-lg border-gray-300 focus:border-cherry-blossom focus:ring-cherry-blossom" value={patientName} onChange={(e) => setPatientName(e.target.value)} />
+                            <label className="block text-[12px] font-semibold text-gray-700 mb-1">Patient Name (Optional)</label>
+                            <input type="text" className={inputCls} value={patientName} onChange={(e) => setPatientName(e.target.value)} />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-1 text-charcoal-blue">Prescription No.</label>
-                            <input type="text" className="w-full rounded-lg border-gray-300 focus:border-cherry-blossom focus:ring-cherry-blossom" value={prescriptionNo} onChange={(e) => setPrescriptionNo(e.target.value)} />
+                            <label className="block text-[12px] font-semibold text-gray-700 mb-1">Prescription No. (Optional)</label>
+                            <input type="text" className={inputCls} value={prescriptionNo} onChange={(e) => setPrescriptionNo(e.target.value)} />
                         </div>
                     </div>
                     <div className="flex justify-end pt-2">
-                        <button onClick={submitDispense} disabled={processing} className="rounded-lg px-6 py-2 text-sm font-medium bg-success-green text-white hover:opacity-90 disabled:opacity-50">
-                            {processing ? 'Dispensing...' : 'Dispense'}
+                        <button onClick={submitDispense} disabled={processing} className="rounded-full bg-[#FF4D79] text-white text-[14px] font-semibold px-6 py-2.5 hover:bg-[#E63E66] transition-colors shadow-[0_4px_14px_rgba(255,77,121,0.3)] disabled:opacity-50 flex items-center gap-2">
+                            {processing ? <><i className="fas fa-circle-notch fa-spin" /> Processing...</> : 'Complete Dispense'}
                         </button>
                     </div>
                 </div>
             )}
 
-            <div className="bg-white rounded-[15px] border border-eggshell w-full overflow-hidden">
-                <div className="p-4 border-b border-eggshell">
-                    <h2 className="font-medium text-charcoal-blue text-lg">Recent Dispense Records</h2>
+            <div className="bg-white rounded-[16px] shadow-sm border border-gray-100 overflow-hidden">
+                <div className="p-4 border-b border-gray-100">
+                    <h2 className="font-semibold text-gray-900 text-[15px]">Recent Dispense Records</h2>
                 </div>
                 <div className="overflow-x-auto w-full">
-                    <table className="w-full min-w-[800px] text-sm">
+                    <table className="w-full min-w-[800px] text-left text-[13px]">
                         <thead>
-                            <tr className="text-left border-b border-eggshell text-charcoal-blue">
-                                <th className="p-4 whitespace-nowrap">Medicine</th>
-                                <th className="p-4 whitespace-nowrap">Qty</th>
-                                <th className="p-4 whitespace-nowrap">Patient</th>
-                                <th className="p-4 whitespace-nowrap">Prescription</th>
-                                <th className="p-4 whitespace-nowrap">Batch</th>
-                                <th className="p-4 whitespace-nowrap">By</th>
-                                {canDelete && <th className="p-4 text-right whitespace-nowrap">Actions</th>}
+                            <tr className="border-b border-gray-100">
+                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Medicine</th>
+                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Qty</th>
+                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Patient</th>
+                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Prescription</th>
+                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Batch</th>
+                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">By</th>
+                                {canDelete && <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">Actions</th>}
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="divide-y divide-gray-50">
                             {rows.map((r) => (
-                                <tr key={r.stock_out_id} className="border-b border-eggshell last:border-0 hover:bg-eggshell/30">
-                                    <td className="p-4 text-charcoal-blue font-medium">{r.medicine?.generic_name}</td>
-                                    <td className="p-4 text-charcoal-blue">{r.quantity}</td>
-                                    <td className="p-4 text-charcoal-blue">{r.patient_name || '—'}</td>
-                                    <td className="p-4 text-charcoal-blue">{r.prescription_no}</td>
-                                    <td className="p-4 text-charcoal-blue">{r.stock_in?.batch_no}</td>
-                                    <td className="p-4 text-charcoal-blue">{r.dispensed_by?.full_name}</td>
+                                <tr key={r.stock_out_id} className="hover:bg-gray-50/50 transition-colors">
+                                    <td className="px-4 py-3 text-gray-900 font-medium">{r.medicine?.generic_name}</td>
+                                    <td className="px-4 py-3 text-gray-600">{r.quantity}</td>
+                                    <td className="px-4 py-3 text-gray-600">{r.patient_name || '—'}</td>
+                                    <td className="px-4 py-3 text-gray-600">{r.prescription_no || '—'}</td>
+                                    <td className="px-4 py-3 text-gray-600">{r.stock_in?.batch_no}</td>
+                                    <td className="px-4 py-3 text-gray-600">{r.dispensed_by?.full_name}</td>
                                     {canDelete && (
-                                        <td className="p-4 text-right">
-                                            <button className="text-critical-red hover:underline text-sm font-medium" onClick={() => setPendingDelete(r.stock_out_id)}>Delete</button>
+                                        <td className="px-4 py-3 text-right">
+                                            <button className="text-critical-red hover:underline text-[13px] font-semibold" onClick={() => setPendingDelete(r.stock_out_id)}>
+                                                Delete
+                                            </button>
                                         </td>
                                     )}
                                 </tr>
                             ))}
-                            {rows.length === 0 && <tr><td colSpan={canDelete ? 7 : 6} className="p-8 text-center text-gray-400">No dispensing records yet.</td></tr>}
+                            {rows.length === 0 && <tr><td colSpan={canDelete ? 7 : 6} className="px-4 py-8 text-center text-gray-400">No dispensing records yet.</td></tr>}
                         </tbody>
                     </table>
                 </div>

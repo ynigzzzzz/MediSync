@@ -1,7 +1,9 @@
 import { cn } from '@/lib/utils';
+import { Sparkline } from '@/Components/Charts/Sparkline';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/Components/ui/tooltip';
 
 const VALUE_TONES = {
-    default: 'text-charcoal-blue',
+    default: 'text-gray-900',
     success: 'text-success-green',
     warning: 'text-warning-orange',
     danger: 'text-critical-red',
@@ -18,39 +20,58 @@ function TrendPill({ trend }) {
     if (!trend) return null;
     const cls = TREND_STYLES[trend.direction] || TREND_STYLES.flat;
     return (
-        <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[0.65rem] font-medium', cls)}>
+        <span className={cn('inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold tracking-wide', cls)}>
             {trend.label}
         </span>
     );
 }
 
-/**
- * Shared stat card used across the app.
- *
- *  icon   — FontAwesome class suffix, e.g. "fa-capsules"
- *  tone   — value color: 'default' | 'success' | 'warning' | 'danger' | 'rose'
- *  trend  — optional { direction: 'up' | 'down' | 'flat', label: string }
- *  onClick / active — optional: turns the card into a clickable filter toggle
- */
-export default function StatCard({ icon, label, value, tone = 'default', trend, onClick, active }) {
+export default function StatCard({ icon, label, value, tone = 'default', trend, onClick, active, tooltip, sparklineData }) {
     const Tag = onClick ? 'button' : 'div';
 
     return (
         <Tag
             onClick={onClick}
             className={cn(
-                'relative overflow-hidden text-left bg-white border rounded-[15px] p-5 w-full',
-                'transition-all duration-300 hover:shadow-md hover:-translate-y-0.5',
-                active ? 'border-cherry-blossom ring-1 ring-cherry-blossom' : 'border-eggshell',
+                'relative overflow-hidden text-left bg-white rounded-[16px] p-4 w-full shadow-sm border border-gray-100 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5',
+                active ? 'ring-2 ring-inset ring-[#FF4D79] border-transparent' : '',
             )}
         >
             {icon && (
-                <i className={cn('fas absolute right-5 top-5 text-3xl text-charcoal-blue opacity-20', icon)} />
+                <div className="absolute right-4 top-4 w-8 h-8 rounded-full bg-[#F2F2F7] flex items-center justify-center">
+                    <i className={cn('fas text-xs text-gray-400', icon)} />
+                </div>
             )}
-            <div className="text-[0.7rem] uppercase tracking-wide text-charcoal-blue mb-2">{label}</div>
-            <div className="flex items-baseline flex-wrap gap-2">
-                <div className={cn('text-2xl font-bold', VALUE_TONES[tone] || VALUE_TONES.default)}>{value}</div>
-                <TrendPill trend={trend} />
+            
+            <div className="flex items-center gap-1.5 mb-1">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">{label}</div>
+                {tooltip && (
+                    <TooltipProvider delayDuration={100}>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <i className="fas fa-circle-info text-[10px] text-gray-300 hover:text-gray-500 transition-colors cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>{tooltip}</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                )}
+            </div>
+
+            <div className="flex items-end justify-between mt-2">
+                <div className="flex items-baseline gap-2">
+                    <div className={cn('text-2xl font-bold tracking-tight', VALUE_TONES[tone] || VALUE_TONES.default)}>{value}</div>
+                    <TrendPill trend={trend} />
+                </div>
+                {sparklineData && (
+                    <div className="-mb-2 -mr-2">
+                        <Sparkline 
+                            data={sparklineData} 
+                            color={tone === 'danger' ? '#DC3545' : tone === 'warning' ? '#E67E22' : '#2E7D64'} 
+                        />
+                    </div>
+                )}
             </div>
         </Tag>
     );

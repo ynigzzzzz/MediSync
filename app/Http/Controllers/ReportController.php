@@ -25,7 +25,27 @@ class ReportController extends Controller
         $supplierId = $request->query('supplier_id', 'all');
         $userId   = $request->query('user_id', 'all');
 
-        // ── Inventory (current snapshot) ──
+        // ── Overall Summary (All-Time) ──
+        $overall = [
+            'total_revenue' => (float) StockOut::select(DB::raw('COALESCE(SUM(total_amount), 0) as v'))->value('v'),
+            'total_spent'   => (float) StockIn::select(DB::raw('COALESCE(SUM(quantity * cost_price), 0) as v'))->value('v'),
+            'total_batches' => (int) StockIn::count(),
+            'total_units'   => (int) StockIn::sum('quantity') + (int) StockOut::sum('quantity'),
+        ];
+        $overall['profit'] = $overall['total_revenue'] - $overall['total_spent'];
+
+        $overall['top_medicines'] = StockOut::join('medicines as m', 'stock_out.medicine_id', '=', 'm.medicine_id')
+            ->select('m.generic_name', DB::raw('SUM(stock_out.quantity) as units'))
+            ->groupBy('m.generic_name')
+            ->orderByDesc('units')
+            ->limit(5)
+            ->get()
+            ->map(fn ($r) => [
+                'name'  => $r->generic_name,
+                'value' => (int) $r->units,
+            ]);
+
+        // ── Inventory ──
         $invQuery = Medicine::query();
         if ($category !== 'all') $invQuery->where('category', $category);
 
@@ -156,6 +176,7 @@ class ReportController extends Controller
             'receiving'       => $receiving,
             'dispensing'      => $dispensing,
             'supplierSummary' => $supplierSummary,
+            'overall'         => $overall,
             'range'           => ['from' => $from, 'to' => $to],
             'filters'         => [
                 'category'    => $category,

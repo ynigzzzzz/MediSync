@@ -14,13 +14,7 @@ class Medicine extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'generic_name',
-        'brand_name',
-        'category',
-        'dosage',
-        'price',
-        'current_stock',
-        'type',
+        'generic_name', 'brand_name', 'category', 'dosage', 'price', 'current_stock', 'type',
     ];
 
     protected $casts = [
