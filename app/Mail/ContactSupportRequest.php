@@ -5,6 +5,7 @@ namespace App\Mail;
 use App\Models\ContactMessage;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
@@ -24,7 +25,7 @@ class ContactSupportRequest extends Mailable
             subject: "[MediSync Support] {$this->inquiryLabel}: {$this->contactMessage->subject}",
             // ⚠️ Make sure replyTo is correctly formatted
             replyTo: [
-                $this->contactMessage->email => $this->contactMessage->full_name
+                $this->contactMessage->email => $this->contactMessage->full_name,
             ],
         );
     }
@@ -39,12 +40,12 @@ class ContactSupportRequest extends Mailable
 
     public function attachments(): array
     {
-        if (!$this->contactMessage->attachment_path) {
+        if (! $this->contactMessage->attachment_path) {
             return [];
         }
 
         return [
-            \Illuminate\Mail\Mailables\Attachment::fromStorageDisk('public', $this->contactMessage->attachment_path),
+            Attachment::fromStorageDisk('public', $this->contactMessage->attachment_path),
         ];
     }
 }

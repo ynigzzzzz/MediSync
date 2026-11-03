@@ -11,13 +11,13 @@ class EnsureUserIsActive
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if ($request->user() && !$request->user()->isActive()) {
+        if ($request->user() && ! $request->user()->isActive()) {
             Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
-            
+
             return redirect('/login')->withErrors([
-                'email' => 'Your account has been deactivated. Please contact an administrator.'
+                'email' => 'Your account has been deactivated. Please contact an administrator.',
             ]);
         }
 

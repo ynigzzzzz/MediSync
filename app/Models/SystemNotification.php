@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 class SystemNotification extends Model
 {
     protected $table = 'system_notifications';
+
     protected $primaryKey = 'notification_id';
+
     public $timestamps = false;
 
     protected $fillable = [

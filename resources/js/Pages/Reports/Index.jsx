@@ -21,7 +21,6 @@ function peso(n) {
 }
 
 export default function Index({ inventory, receiving, dispensing, supplierSummary, overall = {}, range, filters }) {
-    // Default to summary tab
     const [tab, setTab] = useState('summary'); 
     const [invTab, setInvTab] = useState('overview');
     const [recvTab, setRecvTab] = useState('summary');
@@ -148,7 +147,6 @@ export default function Index({ inventory, receiving, dispensing, supplierSummar
 
             <Tabs value={tab} onValueChange={setTab}>
                 <TabsList className="border-b-0 mb-5 bg-gray-100 p-1 rounded-xl inline-flex w-auto overflow-x-auto">
-                    {/* NEW SUMMARY TAB */}
                     <TabsTrigger value="summary" className="rounded-lg px-4 py-1.5 text-[13px] font-semibold text-gray-500 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm transition-all">
                         <i className="fas fa-chart-pie mr-2 opacity-50" /> Summary
                     </TabsTrigger>
@@ -169,10 +167,10 @@ export default function Index({ inventory, receiving, dispensing, supplierSummar
                 {/* ═══════════════ NEW SUMMARY TAB ═══════════════ */}
                 <TabsContent value="summary" className="mt-0">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                        <StatCard icon="fa-sack-dollar" label="Total Revenue" value={peso(overall?.total_revenue)} tone="success" />
-<StatCard icon="fa-money-bill-transfer" label="Total Spent" value={peso(overall?.total_spent)} tone="danger" />
-<StatCard icon="fa-chart-line" label="Net Profit" value={peso(overall?.profit)} tone={overall?.profit >= 0 ? 'success' : 'danger'} />
-<StatCard icon="fa-boxes-stacked" label="Total Units" value={overall?.total_units?.toLocaleString()} />
+                        <StatCard icon="fa-sack-dollar" label="Total Revenue" value={peso(overall?.total_revenue)} tone="success" tooltip="Total sales from dispensing medicines." />
+                        <StatCard icon="fa-money-bill-transfer" label="Total Spent" value={peso(overall?.total_spent)} tone="danger" tooltip="Total cash spent receiving inventory." />
+                        <StatCard icon="fa-chart-line" label="Net Profit" value={peso(overall?.profit)} tone={overall?.profit >= 0 ? 'success' : 'danger'} tooltip="Revenue minus the cost of the items sold." />
+                        <StatCard icon="fa-boxes-stacked" label="Units Dispensed" value={overall?.total_dispensed_units?.toLocaleString()} tooltip={`${overall?.total_received_units?.toLocaleString()} units received in total.`} />
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -184,14 +182,14 @@ export default function Index({ inventory, receiving, dispensing, supplierSummar
                             </CardHeader>
                             <CardContent className="flex flex-col items-center">
                                 <DonutChart 
-                                    data={overall.top_medicines.map((m, i) => ({
+                                    data={overall?.top_medicines?.map((m, i) => ({
                                         name: m.name,
                                         value: m.value,
                                         fill: ['#3B82F6', '#2E7D64', '#FF4D79', '#E67E22', '#8B5CF6'][i % 5]
-                                    }))} 
+                                    })) || []} 
                                 />
                                 <div className="w-full mt-4 space-y-2">
-                                    {overall.top_medicines.map((m, i) => (
+                                    {overall?.top_medicines?.map((m, i) => (
                                         <div key={m.name} className="flex justify-between text-[12px]">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-2 h-2 rounded-full" style={{ background: ['#3B82F6', '#2E7D64', '#FF4D79', '#E67E22', '#8B5CF6'][i % 5] }} />
@@ -204,7 +202,7 @@ export default function Index({ inventory, receiving, dispensing, supplierSummar
                             </CardContent>
                         </Card>
 
-                        {/* Weekly Summary Chart */}
+                        {/* Operational Summary Chart */}
                         <Card className="lg:col-span-2">
                             <CardHeader>
                                 <CardTitle>Operational Summary</CardTitle>
@@ -213,8 +211,8 @@ export default function Index({ inventory, receiving, dispensing, supplierSummar
                             <CardContent className="flex items-center justify-center h-[250px]">
                                 <BarChart 
                                     data={[
-                                        { name: 'Received', units: overall.total_units - (overall.total_revenue/10), cost: overall.total_spent },
-                                        { name: 'Dispensed', units: overall.total_units - (overall.total_spent/10), cost: overall.total_revenue }
+                                        { name: 'Received', units: overall?.total_received_units || 0 },
+                                        { name: 'Dispensed', units: overall?.total_dispensed_units || 0 }
                                     ]} 
                                     xKey="name" 
                                     yKey="units" 

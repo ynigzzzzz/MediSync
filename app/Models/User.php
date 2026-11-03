@@ -11,10 +11,11 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     protected $table = 'users';
+
     protected $primaryKey = 'user_id';
-    
+
     // This tells Laravel not to look for created_at or updated_at
-    public $timestamps = false; 
+    public $timestamps = false;
 
     protected $fillable = [
         'full_name',
@@ -70,5 +71,36 @@ class User extends Authenticatable
     public function auditLogs()
     {
         return $this->hasMany(AuditLog::class, 'user_id', 'user_id');
+    }
+
+    /**
+     * Apply search and role filters.
+     */
+    public function scopeFilter($query, array $filters)
+    {
+        $query->when($filters['search'] ?? false, function ($q, $search) {
+            $q->where(function ($sub) use ($search) {
+                $sub->where('full_name', 'ILIKE', "%{$search}%")
+                    ->orWhere('email', 'ILIKE', "%{$search}%");
+            });
+        });
+
+        $query->when($filters['role'] ?? 'all', function ($q, $role) {
+            if ($role !== 'all' && $role !== '') {
+                $q->where('role', $role);
+            }
+        });
+    }
+
+    /**
+     * Toggle the user's active status.
+     * Returns the new status string.
+     */
+    public function toggleStatus(): string
+    {
+        $newStatus = $this->status === 'active' ? 'inactive' : 'active';
+        $this->update(['status' => $newStatus]);
+
+        return $newStatus;
     }
 }

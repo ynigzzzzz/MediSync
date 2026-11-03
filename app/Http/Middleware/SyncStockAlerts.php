@@ -24,6 +24,7 @@ class SyncStockAlerts
     {
         if ($request->isMethodSafe()) {
             $this->run(fn () => NotificationService::syncThrottled());
+
             return $next($request);
         }
 

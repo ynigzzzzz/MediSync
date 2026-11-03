@@ -18,21 +18,29 @@ class ReportController extends Controller
     {
         abort_unless($request->user()->role === 'admin', 403, 'Only administrators can access Reports.');
 
-        // ── Filters ──
-        $from     = $request->query('from') ?: now()->subDays(29)->toDateString();
-        $to       = $request->query('to')   ?: now()->toDateString();
+        $from = $request->query('from') ?: now()->subDays(29)->toDateString();
+        $to = $request->query('to') ?: now()->toDateString();
         $category = $request->query('category', 'all');
         $supplierId = $request->query('supplier_id', 'all');
-        $userId   = $request->query('user_id', 'all');
+        $userId = $request->query('user_id', 'all');
 
         // ── Overall Summary (All-Time) ──
+        $totalRevenue = (float) StockOut::select(DB::raw('COALESCE(SUM(total_amount), 0) as v'))->value('v');
+
+        // Calculate COGS (Cost of Goods Sold) safely
+        $cogs = (float) DB::table('stock_out')
+            ->leftJoin('stock_in', 'stock_out.stock_in_id', '=', 'stock_in.stock_in_id')
+            ->join('medicines', 'stock_out.medicine_id', '=', 'medicines.medicine_id')
+            ->select(DB::raw('COALESCE(SUM(stock_out.quantity * COALESCE(stock_in.cost_price, (medicines.price * 0.6))), 0) as v'))
+            ->value('v');
+
         $overall = [
-            'total_revenue' => (float) StockOut::select(DB::raw('COALESCE(SUM(total_amount), 0) as v'))->value('v'),
-            'total_spent'   => (float) StockIn::select(DB::raw('COALESCE(SUM(quantity * cost_price), 0) as v'))->value('v'),
-            'total_batches' => (int) StockIn::count(),
-            'total_units'   => (int) StockIn::sum('quantity') + (int) StockOut::sum('quantity'),
+            'total_revenue' => $totalRevenue,
+            'total_spent' => (float) StockIn::select(DB::raw('COALESCE(SUM(quantity * cost_price), 0) as v'))->value('v'),
+            'profit' => $totalRevenue - $cogs,
+            'total_received_units' => (int) StockIn::sum('quantity'),
+            'total_dispensed_units' => (int) StockOut::sum('quantity'),
         ];
-        $overall['profit'] = $overall['total_revenue'] - $overall['total_spent'];
 
         $overall['top_medicines'] = StockOut::join('medicines as m', 'stock_out.medicine_id', '=', 'm.medicine_id')
             ->select('m.generic_name', DB::raw('SUM(stock_out.quantity) as units'))
@@ -41,19 +49,21 @@ class ReportController extends Controller
             ->limit(5)
             ->get()
             ->map(fn ($r) => [
-                'name'  => $r->generic_name,
+                'name' => $r->generic_name,
                 'value' => (int) $r->units,
             ]);
 
         // ── Inventory ──
         $invQuery = Medicine::query();
-        if ($category !== 'all') $invQuery->where('category', $category);
+        if ($category !== 'all') {
+            $invQuery->where('category', $category);
+        }
 
         $inventory = [
             'total_medicines' => (clone $invQuery)->count(),
-            'low_stock'       => (clone $invQuery)->whereBetween('current_stock', [1, 49])->count(),
-            'out_of_stock'    => (clone $invQuery)->where('current_stock', 0)->count(),
-            'valuation'       => (float) (clone $invQuery)->select(DB::raw('COALESCE(SUM(current_stock * price), 0) as v'))->value('v'),
+            'low_stock' => (clone $invQuery)->whereBetween('current_stock', [1, 49])->count(),
+            'out_of_stock' => (clone $invQuery)->where('current_stock', 0)->count(),
+            'valuation' => (float) (clone $invQuery)->select(DB::raw('COALESCE(SUM(current_stock * price), 0) as v'))->value('v'),
         ];
 
         $inventory['status_distribution'] = [
@@ -65,27 +75,29 @@ class ReportController extends Controller
         $inventory['rows'] = (clone $invQuery)->orderBy('generic_name')
             ->get(['medicine_id', 'generic_name', 'brand_name', 'dosage', 'current_stock', 'price', 'category'])
             ->map(fn ($m) => [
-                'medicine_id'   => $m->medicine_id,
-                'generic_name'  => $m->generic_name,
-                'brand_name'    => $m->brand_name,
-                'dosage'        => $m->dosage,
-                'category'      => $m->category,
+                'medicine_id' => $m->medicine_id,
+                'generic_name' => $m->generic_name,
+                'brand_name' => $m->brand_name,
+                'dosage' => $m->dosage,
+                'category' => $m->category,
                 'current_stock' => (int) $m->current_stock,
-                'price'         => (float) $m->price,
-                'stock_value'   => (float) $m->current_stock * (float) $m->price,
-                'status'        => $m->current_stock === 0 ? 'out' : ($m->current_stock < 50 ? 'low' : 'ok'),
+                'price' => (float) $m->price,
+                'stock_value' => (float) $m->current_stock * (float) $m->price,
+                'status' => $m->current_stock === 0 ? 'out' : ($m->current_stock < 50 ? 'low' : 'ok'),
             ]);
 
         $inventory['categories'] = Medicine::distinct()->pluck('category')->filter()->values();
 
         // ── Receiving ──
         $recvQuery = StockIn::whereDate('recorded_at', '>=', $from)->whereDate('recorded_at', '<=', $to);
-        if ($supplierId !== 'all') $recvQuery->where('supplier_id', $supplierId);
+        if ($supplierId !== 'all') {
+            $recvQuery->where('supplier_id', $supplierId);
+        }
 
         $receiving = [
             'total_batches' => (clone $recvQuery)->count(),
-            'total_units'   => (int) (clone $recvQuery)->sum('quantity'),
-            'total_cost'    => (float) (clone $recvQuery)->select(DB::raw('COALESCE(SUM(quantity * cost_price), 0) as v'))->value('v'),
+            'total_units' => (int) (clone $recvQuery)->sum('quantity'),
+            'total_cost' => (float) (clone $recvQuery)->select(DB::raw('COALESCE(SUM(quantity * cost_price), 0) as v'))->value('v'),
         ];
 
         $receiving['by_supplier'] = (clone $recvQuery)
@@ -95,9 +107,9 @@ class ReportController extends Controller
             ->get()
             ->map(fn ($r) => [
                 'supplier' => $r->supplier ?: '—',
-                'batches'  => (int) $r->batches,
-                'units'    => (int) $r->units,
-                'cost'     => (float) $r->cost,
+                'batches' => (int) $r->batches,
+                'units' => (int) $r->units,
+                'cost' => (float) $r->cost,
             ]);
 
         $receiving['by_medicine'] = (clone $recvQuery)
@@ -108,7 +120,7 @@ class ReportController extends Controller
             ->limit(10)
             ->get()
             ->map(fn ($r) => [
-                'name'  => $r->generic_name . ($r->brand_name ? " ({$r->brand_name})" : ''),
+                'name' => $r->generic_name.($r->brand_name ? " ({$r->brand_name})" : ''),
                 'units' => (int) $r->units,
             ]);
 
@@ -117,12 +129,14 @@ class ReportController extends Controller
 
         // ── Dispensing ──
         $dispQuery = StockOut::whereDate('dispensed_at', '>=', $from)->whereDate('dispensed_at', '<=', $to);
-        if ($userId !== 'all') $dispQuery->where('dispensed_by', $userId);
+        if ($userId !== 'all') {
+            $dispQuery->where('dispensed_by', $userId);
+        }
 
         $dispensing = [
             'total_records' => (clone $dispQuery)->count(),
-            'total_units'   => (int) (clone $dispQuery)->sum('quantity'),
-            'total_value'   => (float) (clone $dispQuery)->select(DB::raw('COALESCE(SUM(total_amount), 0) as v'))->value('v'),
+            'total_units' => (int) (clone $dispQuery)->sum('quantity'),
+            'total_value' => (float) (clone $dispQuery)->select(DB::raw('COALESCE(SUM(total_amount), 0) as v'))->value('v'),
         ];
 
         $dispensing['by_medicine'] = (clone $dispQuery)
@@ -133,7 +147,7 @@ class ReportController extends Controller
             ->limit(10)
             ->get()
             ->map(fn ($r) => [
-                'name'  => $r->generic_name . ($r->brand_name ? " ({$r->brand_name})" : ''),
+                'name' => $r->generic_name.($r->brand_name ? " ({$r->brand_name})" : ''),
                 'units' => (int) $r->units,
             ]);
 
@@ -144,9 +158,9 @@ class ReportController extends Controller
             ->orderByDesc('units')
             ->get()
             ->map(fn ($r) => [
-                'user'    => $r->full_name,
+                'user' => $r->full_name,
                 'records' => (int) $r->records,
-                'units'   => (int) $r->units,
+                'units' => (int) $r->units,
             ]);
 
         $dispensing['daily'] = $this->dailySeries('stock_out', 'dispensed_at', 'quantity', $from, $to);
@@ -158,30 +172,31 @@ class ReportController extends Controller
                 $in = StockIn::where('supplier_id', $s->supplier_id)
                     ->select(DB::raw('COUNT(*) as batches'), DB::raw('COALESCE(SUM(quantity), 0) as units'), DB::raw('COALESCE(SUM(quantity * cost_price), 0) as cost'))
                     ->first();
+
                 return [
-                    'supplier_id'    => $s->supplier_id,
-                    'name'           => $s->name,
+                    'supplier_id' => $s->supplier_id,
+                    'name' => $s->name,
                     'contact_person' => $s->contact_person,
-                    'phone'          => $s->phone,
-                    'email'          => $s->email,
-                    'status'         => $s->status,
-                    'batches'        => (int) ($in->batches ?? 0),
-                    'units'          => (int) ($in->units ?? 0),
-                    'cost'           => (float) ($in->cost ?? 0),
+                    'phone' => $s->phone,
+                    'email' => $s->email,
+                    'status' => $s->status,
+                    'batches' => (int) ($in->batches ?? 0),
+                    'units' => (int) ($in->units ?? 0),
+                    'cost' => (float) ($in->cost ?? 0),
                 ];
             });
 
         return Inertia::render('Reports/Index', [
-            'inventory'       => $inventory,
-            'receiving'       => $receiving,
-            'dispensing'      => $dispensing,
+            'inventory' => $inventory,
+            'receiving' => $receiving,
+            'dispensing' => $dispensing,
             'supplierSummary' => $supplierSummary,
-            'overall'         => $overall,
-            'range'           => ['from' => $from, 'to' => $to],
-            'filters'         => [
-                'category'    => $category,
+            'overall' => $overall,
+            'range' => ['from' => $from, 'to' => $to],
+            'filters' => [
+                'category' => $category,
                 'supplier_id' => $supplierId,
-                'user_id'     => $userId,
+                'user_id' => $userId,
             ],
         ]);
     }
@@ -199,16 +214,17 @@ class ReportController extends Controller
 
         $series = [];
         $cursor = Carbon::parse($from)->startOfDay();
-        $end    = Carbon::parse($to)->startOfDay();
+        $end = Carbon::parse($to)->startOfDay();
         while ($cursor->lte($end)) {
             $key = $cursor->toDateString();
             $series[] = [
-                'date'  => $key,
+                'date' => $key,
                 'label' => $cursor->format('M j'),
                 'value' => (int) ($rows[$key]->v ?? 0),
             ];
             $cursor->addDay();
         }
+
         return $series;
     }
 
@@ -217,8 +233,8 @@ class ReportController extends Controller
         abort_unless($request->user()->role === 'admin', 403);
 
         $from = $request->query('from') ?: now()->subDays(29)->toDateString();
-        $to   = $request->query('to')   ?: now()->toDateString();
-        $tab  = $request->query('tab', 'inventory');
+        $to = $request->query('to') ?: now()->toDateString();
+        $tab = $request->query('tab', 'inventory');
 
         $medicines = Medicine::orderBy('generic_name')->get(['generic_name', 'brand_name', 'dosage', 'current_stock', 'price']);
         $receivingRows = StockIn::whereDate('recorded_at', '>=', $from)->whereDate('recorded_at', '<=', $to)

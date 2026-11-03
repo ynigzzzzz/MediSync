@@ -65,18 +65,18 @@ class ContactController extends Controller
         // Try to send email
         try {
             $supportInbox = config('mail.support_inbox') ?? config('mail.from.address');
-            
-            \Log::info('Attempting to send email to: ' . $supportInbox);
-            
+
+            \Log::info('Attempting to send email to: '.$supportInbox);
+
             Mail::to($supportInbox)
                 ->send(new ContactSupportRequest($contactMessage, self::INQUIRY_TYPES[$data['inquiry_type']]));
-                
+
             \Log::info('Email sent successfully');
-            
+
         } catch (\Exception $e) {
-            \Log::error('Mail error: ' . $e->getMessage());
-            \Log::error('Mail error trace: ' . $e->getTraceAsString());
-            
+            \Log::error('Mail error: '.$e->getMessage());
+            \Log::error('Mail error trace: '.$e->getTraceAsString());
+
             // Continue anyway - don't fail the request
         }
 

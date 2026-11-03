@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreMedicineRequest;
+use App\Http\Requests\UpdateMedicineRequest;
 use App\Models\AuditLog;
 use App\Models\Medicine;
 use App\Models\StockIn;
@@ -17,65 +19,37 @@ class MedicineCatalogController extends Controller
             ? $request->query('filter')
             : 'all';
 
-        // Fetch unique categories and types for the searchable dropdowns
-        $categories = Medicine::whereNotNull('category')->where('category', '!=', '')->distinct()->pluck('category');
-        $types = Medicine::whereNotNull('type')->where('type', '!=', '')->distinct()->pluck('type');
-
         if ($filter === 'expiring') {
+            $medicines = collect();
             $expiringBatches = StockIn::with('medicine:medicine_id,generic_name,brand_name')
                 ->where('remaining_quantity', '>', 0)
                 ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
                 ->orderBy('expiry_date')
                 ->paginate(15)->withQueryString();
-                
-            $medicines = collect(); 
-            $totalMedicines = Medicine::count();
-            $lowStockCount = Medicine::whereBetween('current_stock', [1, 49])->count();
-            $outOfStockCount = Medicine::where('current_stock', 0)->count();
         } else {
-            $query = Medicine::orderBy('generic_name');
-            
-            if ($filter === 'lowstock') {
-                $query->whereBetween('current_stock', [1, 49]);
-            } elseif ($filter === 'outofstock') {
-                $query->where('current_stock', 0);
-            }
-
-            $medicines = $query->paginate(15)->withQueryString();
             $expiringBatches = null;
-            $totalMedicines = Medicine::count();
-            $lowStockCount = Medicine::whereBetween('current_stock', [1, 49])->count();
-            $outOfStockCount = Medicine::where('current_stock', 0)->count();
+            $medicines = Medicine::query()
+                ->filterStatus($filter)
+                ->orderBy('generic_name')
+                ->paginate(15)
+                ->withQueryString();
         }
 
         return Inertia::render('MedicineCatalog/Index', [
             'medicines' => $medicines,
             'expiringBatches' => $expiringBatches,
-            'totalMedicines' => $totalMedicines,
-            'lowStockCount' => $lowStockCount,
-            'outOfStockCount' => $outOfStockCount,
+            'stats' => Medicine::getStats(),
             'activeFilter' => $filter,
-            'categories' => $categories,
-            'types' => $types,
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreMedicineRequest $request)
     {
-        abort_if($request->user()->role === 'assistant', 403, 'You do not have permission to add medicines.');
-
-                $validated = $request->validate([
-            'generic_name' => ['required', 'string', 'max:255'],
-            'brand_name'   => ['required', 'string', 'max:255'],
-            'type'         => ['required', 'string', 'max:255'],
-            'category'     => ['required', 'string', 'max:255'],
-            'dosage'       => ['required', 'string', 'max:255'],
-            'price'        => ['required', 'numeric', 'min:0'],
-        ]);
+        $validated = $request->validated();
 
         $exists = Medicine::where('generic_name', $validated['generic_name'])
-            ->where('brand_name', $validated['brand_name'] ?? '')
-            ->where('dosage', $validated['dosage'] ?? '')
+            ->where('brand_name', $validated['brand_name'])
+            ->where('dosage', $validated['dosage'])
             ->exists();
 
         if ($exists) {
@@ -84,31 +58,20 @@ class MedicineCatalogController extends Controller
             ]);
         }
 
-        Medicine::create([...$validated, 'current_stock' => 0]);
+        $medicine = Medicine::create([...$validated, 'current_stock' => 0]);
 
         AuditLog::record(
             $request->user()->user_id,
             'CREATE_MEDICINE',
-            "Added medicine: {$validated['generic_name']}"
+            "Added medicine: {$medicine->generic_name}"
         );
 
         return back()->with('message', 'Medicine added successfully.');
     }
 
-    public function update(Request $request, Medicine $medicine)
+    public function update(UpdateMedicineRequest $request, Medicine $medicine)
     {
-        abort_if($request->user()->role === 'assistant', 403, 'You do not have permission to edit medicines.');
-
-        $validated = $request->validate([
-            'generic_name' => ['required', 'string', 'max:255'],
-            'brand_name'   => ['nullable', 'string', 'max:255'],
-            'type'         => ['nullable', 'string', 'max:255'],
-            'category'     => ['nullable', 'string', 'max:255'],
-            'dosage'       => ['nullable', 'string', 'max:255'],
-            'price'        => ['required', 'numeric', 'min:0'],
-        ]);
-
-        $medicine->update($validated);
+        $medicine->update($request->validated());
 
         AuditLog::record(
             $request->user()->user_id,
@@ -121,7 +84,7 @@ class MedicineCatalogController extends Controller
 
     public function destroy(Request $request, Medicine $medicine)
     {
-        abort_if($request->user()->role === 'assistant', 403, 'You do not have permission to delete medicines.');
+        abort_unless($request->user()->role === 'admin', 403, 'Only administrators can delete medicines.');
 
         $name = $medicine->generic_name;
         $medicine->delete();
@@ -133,21 +96,19 @@ class MedicineCatalogController extends Controller
 
     public function disposeBatches(Request $request)
     {
-        abort_unless(
-            in_array($request->user()->role, ['admin', 'pharmacist']),
-            403,
-            'Only administrators and pharmacists can dispose batches.'
-        );
+        abort_unless(in_array($request->user()->role, ['admin', 'pharmacist']), 403);
 
         $data = $request->validate([
-            'batch_ids'   => ['required', 'array', 'min:1'],
+            'batch_ids' => ['required', 'array', 'min:1'],
             'batch_ids.*' => ['integer', 'exists:stock_in,stock_in_id'],
         ]);
 
         DB::transaction(function () use ($data, $request) {
             foreach ($data['batch_ids'] as $stockInId) {
                 $batch = StockIn::where('stock_in_id', (int) $stockInId)->lockForUpdate()->first();
-                if (! $batch) continue;
+                if (! $batch) {
+                    continue;
+                }
 
                 Medicine::where('medicine_id', $batch->medicine_id)
                     ->decrement('current_stock', $batch->remaining_quantity);

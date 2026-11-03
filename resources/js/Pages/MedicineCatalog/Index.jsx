@@ -4,18 +4,16 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import StatCard from '@/Components/StatCard';
 import Badge from '@/Components/Badge';
 import ConfirmDialog from '@/Components/ConfirmDialog';
-import ExpiryWarning from '@/Components/ExpiryWarning';
 import Pagination from '@/Components/Pagination';
 import { SearchableSelect } from '@/Components/ui/searchable-select';
 
 const emptyForm = { generic_name: '', brand_name: '', type: '', category: '', dosage: '', price: '' };
 const inputCls = "w-full rounded-xl border border-transparent bg-[#F2F2F7] px-3 py-2 text-[14px] text-gray-900 placeholder-gray-400 focus:border-gray-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-100 transition-all";
 
-// Swapped: Type is physical form, Category is therapeutic use
 const DEFAULT_TYPES = ['Tablet', 'Capsule', 'Syrup', 'Suspension', 'Injection', 'Ointment', 'Drops'];
 const DEFAULT_CATEGORIES = ['Allergies', 'Stomach Pain', 'Headache', 'Fever', 'Cough', 'Antibiotic', 'Vitamins'];
 
-export default function Index({ medicines, totalMedicines, lowStockCount, outOfStockCount, expiryWarning, activeFilter, expiringBatches, categories, types }) {
+export default function Index({ medicines, stats, activeFilter, expiringBatches }) {
     const { auth, flash, errors } = usePage().props;
     const role = auth.user.role;
     const canEdit = role !== 'assistant';
@@ -31,8 +29,8 @@ export default function Index({ medicines, totalMedicines, lowStockCount, outOfS
     const rows = medicines?.data ?? [];
     const batches = expiringBatches?.data ?? [];
     
-    const allCategories = [...new Set([...DEFAULT_CATEGORIES, ...(categories || [])])];
-    const allTypes = [...new Set([...DEFAULT_TYPES, ...(types || [])])];
+    const allCategories = [...new Set([...DEFAULT_CATEGORIES, ...(stats?.categories || [])])];
+    const allTypes = [...new Set([...DEFAULT_TYPES, ...(stats?.types || [])])];
 
     function applyFilter(filter) {
         router.get('/medicine-list', { filter }, { preserveScroll: true, preserveState: true });
@@ -62,7 +60,6 @@ export default function Index({ medicines, totalMedicines, lowStockCount, outOfS
     function submitForm(e) {
         e.preventDefault();
         
-        // Manual check for custom dropdowns
         if (!form.type || !form.category) {
             setLocalError('Please select a Type and Category.');
             return;
@@ -121,13 +118,13 @@ export default function Index({ medicines, totalMedicines, lowStockCount, outOfS
             )}
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <StatCard label="Total Medicines" value={totalMedicines} icon="fa-capsules" onClick={() => applyFilter('all')} active={activeFilter === 'all'} />
-                <StatCard label="Low Stock" value={lowStockCount} icon="fa-triangle-exclamation" tone="warning" onClick={() => applyFilter('lowstock')} active={activeFilter === 'lowstock'} />
-                <StatCard label="Out of Stock" value={outOfStockCount} icon="fa-circle-xmark" tone="danger" onClick={() => applyFilter('outofstock')} active={activeFilter === 'outofstock'} />
-                <StatCard label="Expiring (30 Days)" value={expiringBatches?.total ?? 0} icon="fa-hourglass-half" tone="warning" onClick={() => applyFilter('expiring')} active={activeFilter === 'expiring'} />
+                <StatCard label="Total Medicines" value={stats.total} icon="fa-capsules" onClick={() => applyFilter('all')} active={activeFilter === 'all'} />
+                <StatCard label="Low Stock" value={stats.lowstock} icon="fa-triangle-exclamation" tone="warning" onClick={() => applyFilter('lowstock')} active={activeFilter === 'lowstock'} />
+                <StatCard label="Out of Stock" value={stats.outofstock} icon="fa-circle-xmark" tone="danger" onClick={() => applyFilter('outofstock')} active={activeFilter === 'outofstock'} />
+                <StatCard label="Expiring (30 Days)" value={stats.expiring} icon="fa-hourglass-half" tone="warning" onClick={() => applyFilter('expiring')} active={activeFilter === 'expiring'} />
             </div>
 
-            <ExpiryWarning data={expiryWarning} storageKey="expiry-warning-catalog" />
+            {/* Removed the ExpiryWarning component here as it's not defined anymore */}
 
             {showForm && (
                 <div className="bg-white rounded-[16px] shadow-sm border border-gray-100 p-5 mb-4 space-y-4">

@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateUserRequest;
 use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class UserManagementController extends Controller
@@ -16,17 +17,8 @@ class UserManagementController extends Controller
     {
         abort_unless($request->user()->role === 'admin', 403);
 
-        $search = trim((string) $request->query('search', ''));
-        $filterRole = $request->query('role', '');
-
         $users = User::query()
-            ->when($search !== '', function ($q) use ($search) {
-                $q->where(function ($sub) use ($search) {
-                    $sub->where('full_name', 'ILIKE', "%{$search}%")
-                        ->orWhere('email', 'ILIKE', "%{$search}%");
-                });
-            })
-            ->when($filterRole !== '' && $filterRole !== 'all', fn ($q) => $q->where('role', $filterRole))
+            ->filter($request->only('search', 'role'))
             ->orderBy('full_name')
             ->paginate(15)
             ->withQueryString();
@@ -38,26 +30,19 @@ class UserManagementController extends Controller
                 'inactiveUsers' => User::where('status', 'inactive')->count(),
                 'adminCount' => User::where('role', 'admin')->count(),
             ],
-            'filters' => ['search' => $search, 'role' => $filterRole ?: 'all'],
+            'filters' => [
+                'search' => $request->query('search', ''),
+                'role' => $request->query('role', 'all'),
+            ],
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreUserRequest $request)
     {
-        abort_unless($request->user()->role === 'admin', 403);
+        $validated = $request->validated();
 
-        $validated = $request->validate([
-            'full_name' => ['required', 'string', 'max:100'],
-            'email' => ['required', 'email', 'max:100', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:6'],
-            'role' => ['required', Rule::in(['admin', 'pharmacist', 'assistant'])],
-            'status' => ['required', Rule::in(['active', 'inactive'])],
-            'profile_image' => ['nullable', 'image', 'max:2048'],
-        ]);
-
-        $profileImagePath = null;
         if ($request->hasFile('profile_image')) {
-            $profileImagePath = $request->file('profile_image')->store('profiles', 'public');
+            $validated['profile_image'] = $request->file('profile_image')->store('profiles', 'public');
         }
 
         $user = User::create([
@@ -66,7 +51,7 @@ class UserManagementController extends Controller
             'password_hash' => Hash::make($validated['password']),
             'role' => $validated['role'],
             'status' => $validated['status'],
-            'profile_image' => $profileImagePath,
+            'profile_image' => $validated['profile_image'] ?? null,
         ]);
 
         AuditLog::record(
@@ -79,18 +64,9 @@ class UserManagementController extends Controller
         return back()->with('success', "User \"{$user->full_name}\" has been added successfully.");
     }
 
-    public function update(Request $request, User $user)
+    public function update(UpdateUserRequest $request, User $user)
     {
-        abort_unless($request->user()->role === 'admin', 403);
-
-        $validated = $request->validate([
-            'full_name' => ['required', 'string', 'max:100'],
-            'email' => ['required', 'email', 'max:100', Rule::unique('users', 'email')->ignore($user->user_id, 'user_id')],
-            'password' => ['nullable', 'string', 'min:6'],
-            'role' => ['required', Rule::in(['admin', 'pharmacist', 'assistant'])],
-            'status' => ['required', Rule::in(['active', 'inactive'])],
-            'profile_image' => ['nullable', 'image', 'max:2048'],
-        ]);
+        $validated = $request->validated();
 
         if ($request->hasFile('profile_image')) {
             if ($user->profile_image) {
@@ -99,7 +75,7 @@ class UserManagementController extends Controller
             $validated['profile_image'] = $request->file('profile_image')->store('profiles', 'public');
         }
 
-        if (!empty($validated['password'])) {
+        if (! empty($validated['password'])) {
             $validated['password_hash'] = Hash::make($validated['password']);
         }
         unset($validated['password']);
@@ -124,8 +100,7 @@ class UserManagementController extends Controller
             return back()->withErrors(['message' => 'You cannot change your own status.']);
         }
 
-        $newStatus = $user->status === 'active' ? 'inactive' : 'active';
-        $user->update(['status' => $newStatus]);
+        $newStatus = $user->toggleStatus();
 
         AuditLog::record(
             $request->user()->user_id,
@@ -140,7 +115,7 @@ class UserManagementController extends Controller
     public function destroy(Request $request, User $user)
     {
         abort_unless($request->user()->role === 'admin', 403);
-        
+
         if ($user->user_id === $request->user()->user_id) {
             return back()->withErrors(['message' => 'You cannot delete your own account.']);
         }

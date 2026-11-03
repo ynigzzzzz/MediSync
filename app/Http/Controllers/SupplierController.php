@@ -2,29 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreSupplierRequest;
+use App\Http\Requests\UpdateSupplierRequest;
 use App\Models\AuditLog;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class SupplierController extends Controller
 {
     public function index(Request $request)
     {
-        $search = trim((string) $request->query('search', ''));
-        $status = $request->query('status', 'all');
-
         $suppliers = Supplier::query()
-            ->when($search !== '', function ($q) use ($search) {
-                $q->where(function ($sub) use ($search) {
-                    $sub->where('name', 'ILIKE', "%{$search}%")
-                        ->orWhere('contact_person', 'ILIKE', "%{$search}%")
-                        ->orWhere('email', 'ILIKE', "%{$search}%")
-                        ->orWhere('phone', 'ILIKE', "%{$search}%");
-                });
-            })
-            ->when($status !== 'all' && $status !== '', fn ($q) => $q->where('status', $status))
+            ->filter($request->only('search', 'status'))
             ->orderBy('name')
             ->paginate(15)
             ->withQueryString();
@@ -32,31 +22,21 @@ class SupplierController extends Controller
         return Inertia::render('Suppliers/Index', [
             'suppliers' => $suppliers,
             'stats' => [
-                'total'    => Supplier::count(),
-                'active'   => Supplier::where('status', 'active')->count(),
+                'total' => Supplier::count(),
+                'active' => Supplier::where('status', 'active')->count(),
                 'inactive' => Supplier::where('status', 'inactive')->count(),
             ],
             'filters' => [
-                'search' => $search,
-                'status' => $status ?: 'all',
+                'search' => $request->query('search', ''),
+                'status' => $request->query('status', 'all'),
             ],
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreSupplierRequest $request)
     {
-        abort_if($request->user()->role === 'assistant', 403, 'Assistants cannot add suppliers.');
-
-        $validated = $request->validate([
-            'name'           => ['required', 'string', 'max:100'],
-            'contact_person' => ['nullable', 'string', 'max:100'],
-            'phone'          => ['nullable', 'string', 'max:30'],
-            'email'          => ['nullable', 'email', 'max:100'],
-            'address'        => ['nullable', 'string', 'max:255'],
-            'status'         => ['required', Rule::in(['active', 'inactive'])],
-        ]);
-
-        $supplier = Supplier::create($validated);
+        // Validation is handled automatically by StoreSupplierRequest
+        $supplier = Supplier::create($request->validated());
 
         AuditLog::record(
             $request->user()->user_id,
@@ -68,20 +48,10 @@ class SupplierController extends Controller
         return back()->with('success', "Supplier \"{$supplier->name}\" has been added.");
     }
 
-    public function update(Request $request, Supplier $supplier)
+    public function update(UpdateSupplierRequest $request, Supplier $supplier)
     {
-        abort_if($request->user()->role === 'assistant', 403, 'Assistants cannot edit suppliers.');
-
-        $validated = $request->validate([
-            'name'           => ['required', 'string', 'max:100'],
-            'contact_person' => ['nullable', 'string', 'max:100'],
-            'phone'          => ['nullable', 'string', 'max:30'],
-            'email'          => ['nullable', 'email', 'max:100'],
-            'address'        => ['nullable', 'string', 'max:255'],
-            'status'         => ['required', Rule::in(['active', 'inactive'])],
-        ]);
-
-        $supplier->update($validated);
+        // Validation is handled automatically by UpdateSupplierRequest
+        $supplier->update($request->validated());
 
         AuditLog::record(
             $request->user()->user_id,

@@ -27,19 +27,19 @@ class ExpiryWarning
                 $expiry = Carbon::parse($b->expiry_date)->startOfDay();
 
                 return [
-                    'stock_in_id'        => $b->stock_in_id,
-                    'generic_name'       => $b->medicine?->generic_name,
-                    'brand_name'         => $b->medicine?->brand_name,
-                    'batch_no'           => $b->batch_no,
-                    'expiry_date'        => $expiry->toDateString(),
+                    'stock_in_id' => $b->stock_in_id,
+                    'generic_name' => $b->medicine?->generic_name,
+                    'brand_name' => $b->medicine?->brand_name,
+                    'batch_no' => $b->batch_no,
+                    'expiry_date' => $expiry->toDateString(),
                     'remaining_quantity' => $b->remaining_quantity,
-                    'days_left'          => (int) $today->diffInDays($expiry, false),
+                    'days_left' => (int) $today->diffInDays($expiry, false),
                 ];
             });
 
         return [
-            'days'     => $days,
-            'expired'  => $rows->where('days_left', '<', 0)->values()->all(),
+            'days' => $days,
+            'expired' => $rows->where('days_left', '<', 0)->values()->all(),
             'expiring' => $rows->where('days_left', '>=', 0)->values()->all(),
         ];
     }

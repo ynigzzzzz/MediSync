@@ -1,18 +1,18 @@
 <?php
 
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\StockDispensingController;
 use App\Http\Controllers\MedicineCatalogController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\StockDispensingController;
 use App\Http\Controllers\StockReceivingController;
+use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TransactionHistoryController;
 use App\Http\Controllers\UserManagementController;
-use App\Http\Controllers\ContactController;
-use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\SupplierController;
-use App\Http\Controllers\ReportController;
-use App\Http\Middleware\SyncStockAlerts;
 use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\SyncStockAlerts;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -22,7 +22,7 @@ Route::get('/', function () {
 Route::middleware([
     'auth',
     EnsureUserIsActive::class,
-    SyncStockAlerts::class
+    SyncStockAlerts::class,
 ])->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreStockInRequest;
 use App\Models\AuditLog;
 use App\Models\Medicine;
 use App\Models\StockIn;
@@ -9,7 +10,6 @@ use App\Models\StockOut;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class StockReceivingController extends Controller
@@ -18,117 +18,61 @@ class StockReceivingController extends Controller
     {
         abort_if($request->user()->role === 'assistant', 403);
 
-                $medicines = Medicine::select('medicine_id', 'generic_name', 'brand_name', 'current_stock', 'price', 'dosage')
-            ->orderBy('generic_name')
-            ->get();
-
-        $suppliers = Supplier::where('status', 'active')
-            ->orderBy('name')
-            ->get(['supplier_id', 'name']);
-
         $records = StockIn::with([
-                'medicine:medicine_id,generic_name,price',
-                'receivedBy:user_id,full_name',
-                'supplier:supplier_id,name',
-            ])
+            'medicine:medicine_id,generic_name,price',
+            'receivedBy:user_id,full_name',
+            'supplier:supplier_id,name',
+        ])
             ->orderByDesc('recorded_at')
             ->paginate(15)
             ->withQueryString();
 
+        // Format batches exactly how the ExpiryWarning component expects it
         $expiringBatches = StockIn::with('medicine:medicine_id,generic_name,brand_name')
+            ->where('remaining_quantity', '>', 0)
             ->whereDate('expiry_date', '<=', now()->addDays(30))
             ->orderBy('expiry_date')
             ->get()
             ->map(fn ($b) => [
-                'stock_in_id'        => $b->stock_in_id,
-                'generic_name'       => $b->medicine->generic_name ?? '—',
-                'brand_name'         => $b->medicine->brand_name ?? '',
-                'batch_no'           => $b->batch_no,
-                'expiry_date'        => $b->expiry_date,
+                'stock_in_id' => $b->stock_in_id,
+                'generic_name' => $b->medicine->generic_name ?? '—',
+                'brand_name' => $b->medicine->brand_name ?? '',
+                'batch_no' => $b->batch_no,
+                'expiry_date' => $b->expiry_date,
                 'remaining_quantity' => $b->remaining_quantity,
-                'days_left'          => now()->diffInDays($b->expiry_date, false),
+                'days_left' => now()->diffInDays($b->expiry_date, false),
             ]);
 
         return Inertia::render('StockReceiving/Index', [
-            'medicines'       => $medicines,
-            'suppliers'       => $suppliers,
-            'records'         => $records,
-            'expiringBatches' => $expiringBatches,
-            'alerts' => [
-                'lowStock'     => Medicine::whereBetween('current_stock', [1, 49])->count(),
-                'outOfStock'   => Medicine::where('current_stock', 0)->count(),
-                'expiringSoon' => StockIn::whereDate('expiry_date', '<=', now()->addDays(30))
-                    ->whereDate('expiry_date', '>=', now())
-                    ->distinct('medicine_id')
-                    ->count('medicine_id'),
-                'hasExpired'   => StockIn::where('remaining_quantity', '>', 0)
-                    ->whereDate('expiry_date', '<', now())
-                    ->exists(),
-            ],
+            'medicines' => Medicine::select('medicine_id', 'generic_name', 'brand_name', 'current_stock', 'price', 'dosage')->orderBy('generic_name')->get(),
+            'suppliers' => Supplier::where('status', 'active')->orderBy('name')->get(['supplier_id', 'name']),
+            'records' => $records,
+            'expiringBatches' => $expiringBatches, // <-- Now properly formatted
+            'alerts' => $this->getAlerts(),
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreStockInRequest $request)
     {
-        abort_if($request->user()->role === 'assistant', 403);
+        $data = $request->validated();
 
-        $data = $request->validate([
-            'medicine_id'   => ['required', 'integer', 'exists:medicines,medicine_id'],
-            'quantity'      => ['required', 'integer', 'min:1'],
-            'batch_no'      => ['required', 'string', 'max:50'],
-            'expiry_date'   => ['required', 'date', 'after:today'],
-            'supplier_id'   => ['nullable', 'integer', Rule::exists('suppliers', 'supplier_id')],
-            'supplier'      => ['required_without:supplier_id', 'nullable', 'string', 'max:100'],
-            'delivery_date' => ['required', 'date'],
-            'cost_price'    => ['required', 'numeric', 'min:0.01'],
-            'sell_price'    => ['nullable', 'numeric', 'min:0'],
-            'dosage'        => ['nullable', 'string', 'max:50'], // <-- Added Dosage
-        ]);
-
+        // Handle the supplier relationship string sync
         if (! empty($data['supplier_id'])) {
             $supplier = Supplier::find($data['supplier_id']);
-            if ($supplier) $data['supplier'] = $supplier->name;
+            if ($supplier) {
+                $data['supplier'] = $supplier->name;
+            }
         }
 
-        DB::transaction(function () use ($data, $request) {
-            $medicine = Medicine::where('medicine_id', $data['medicine_id'])->lockForUpdate()->firstOrFail();
-            $medicine->increment('current_stock', $data['quantity']);
+        // Call the Fat Model method
+        $batch = StockIn::receiveBatch($data, $request->user()->user_id);
 
-                        // Update the medicine's dosage and price if provided
-            $updates = [];
-            if (($data['sell_price'] ?? 0) > 0 && (float) $medicine->price !== (float) $data['sell_price']) {
-                $updates['price'] = $data['sell_price'];
-            }
-            // ADD THIS LINE:
-            if (($data['cost_price'] ?? 0) > 0) {
-                $updates['cost_price'] = $data['cost_price'];
-            }
-            if (!empty($data['dosage']) && $medicine->dosage !== $data['dosage']) {
-                $updates['dosage'] = $data['dosage'];
-            }
-
-            StockIn::create([
-                'medicine_id'        => $data['medicine_id'],
-                'quantity'           => $data['quantity'],
-                'batch_no'           => $data['batch_no'],
-                'expiry_date'        => $data['expiry_date'],
-                'supplier'           => $data['supplier'] ?? null,
-                'supplier_id'        => $data['supplier_id'] ?? null,
-                'received_by'        => $request->user()->user_id,
-                'delivery_date'      => $data['delivery_date'],
-                'invoice_no'         => 'N/A', // Defaulted since we removed it from UI
-                'cost_price'         => $data['cost_price'],
-                'selling_price'      => $data['sell_price'] ?? 0,
-                'remaining_quantity' => $data['quantity'],
-            ]);
-
-            AuditLog::record(
-                $request->user()->user_id,
-                'STOCK_IN',
-                "Added {$data['quantity']} units of {$medicine->generic_name} (supplier: " . ($data['supplier'] ?? '—') . ")",
-                $data['medicine_id']
-            );
-        });
+        AuditLog::record(
+            $request->user()->user_id,
+            'STOCK_IN',
+            "Added {$data['quantity']} units of {$batch->medicine->generic_name} (supplier: ".($data['supplier'] ?? '—').')',
+            $data['medicine_id']
+        );
 
         return back()->with('success', 'Stock-In successful!');
     }
@@ -151,7 +95,7 @@ class StockReceivingController extends Controller
         abort_unless(in_array($request->user()->role, ['admin', 'pharmacist']), 403);
 
         $data = $request->validate([
-            'batch_ids'   => ['required', 'array', 'min:1'],
+            'batch_ids' => ['required', 'array', 'min:1'],
             'batch_ids.*' => ['integer', 'exists:stock_in,stock_in_id'],
         ]);
 
@@ -166,5 +110,23 @@ class StockReceivingController extends Controller
         });
 
         return back()->with('success', 'Selected batches disposed.');
+    }
+
+    private function getAlerts(): array
+    {
+        $expiring = StockIn::where('remaining_quantity', '>', 0)
+            ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
+            ->get();
+
+        $expired = StockIn::where('remaining_quantity', '>', 0)
+            ->whereDate('expiry_date', '<', now()->toDateString())
+            ->get();
+
+        return [
+            'lowStock' => Medicine::whereBetween('current_stock', [1, 49])->count(),
+            'outOfStock' => Medicine::where('current_stock', 0)->count(),
+            'expiringSoon' => $expiring->count(),
+            'hasExpired' => $expired->isNotEmpty(),
+        ];
     }
 }
