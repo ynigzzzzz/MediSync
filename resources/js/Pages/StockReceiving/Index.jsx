@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Head, useForm, router } from '@inertiajs/react';
+import { Head, useForm, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import StatCard from '@/Components/StatCard';
 import ConfirmDialog from '@/Components/ConfirmDialog';
@@ -17,6 +17,20 @@ export default function StockReceivingIndex({ medicines, suppliers, records, ale
     });
 
     const [pendingDelete, setPendingDelete] = useState(null);
+    
+    // Success Alert State
+    const [showAlert, setShowAlert] = useState(false);
+    const [alertMessage, setAlertMessage] = useState('');
+
+    const triggerSuccess = (msg) => {
+        setAlertMessage(msg);
+        setShowAlert(true);
+        setTimeout(() => {
+            document.getElementById('success-alert')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+        setTimeout(() => setShowAlert(false), 4000);
+    };
+
     const rows = records?.data ?? [];
     const freeTextSupplier = data.supplier_id === '';
 
@@ -43,12 +57,18 @@ export default function StockReceivingIndex({ medicines, suppliers, records, ale
     function submit(e) {
         e.preventDefault();
         post(route('stock-receiving.store'), {
-            onSuccess: () => reset('medicine_id', 'quantity', 'cost_price', 'sell_price', 'batch_no', 'expiry_date', 'supplier_id', 'supplier', 'delivery_date', 'dosage'),
+            onSuccess: () => {
+                reset('medicine_id', 'quantity', 'cost_price', 'sell_price', 'batch_no', 'expiry_date', 'supplier_id', 'supplier', 'delivery_date', 'dosage');
+                triggerSuccess('Stock-In recorded successfully!');
+            },
         });
     }
 
     function confirmDelete() {
-        router.delete(route('stock-receiving.destroy', pendingDelete.id), { onFinish: () => setPendingDelete(null) });
+        router.delete(route('stock-receiving.destroy', pendingDelete.id), { 
+            onSuccess: () => triggerSuccess('Stock-In record deleted.'),
+            onFinish: () => setPendingDelete(null) 
+        });
     }
 
     return (
@@ -68,8 +88,15 @@ export default function StockReceivingIndex({ medicines, suppliers, records, ale
 
             <ExpiryWarning data={expiryWarning} storageKey="expiry-warning-receiving" />
 
+            {(alerts.expiredCount > 0 || alerts.expiringSoon > 0) && (
+                <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-[16px] text-[13px] shadow-sm">
+                    <h4 className="font-semibold mb-1"><i className="fas fa-triangle-exclamation mr-2" />Attention Required</h4>
+                    {alerts.expiredCount > 0 && <p>{alerts.expiredCount} expired batch(es) still in stock — dispose before dispensing.</p>}
+                    {alerts.expiringSoon > 0 && <p>{alerts.expiringSoon} batch(es) expiring within 30 days.</p>}
+                </div>
+            )}
+
             <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white rounded-[16px] shadow-sm border border-gray-100 p-5 mb-4">
-                {/* Most Important */}
                 <div className="md:col-span-1">
                     <label className="block text-[12px] font-semibold text-gray-700 mb-1">Medicine<span className="text-critical-red">*</span></label>
                     <select className={inputCls} value={data.medicine_id} onChange={handleMedicineChange}>
@@ -91,7 +118,6 @@ export default function StockReceivingIndex({ medicines, suppliers, records, ale
                     {errors.batch_no && <p className="text-critical-red text-[11px] mt-1">{errors.batch_no}</p>}
                 </div>
 
-                {/* Medium Importance */}
                 <div>
                     <label className="block text-[12px] font-semibold text-gray-700 mb-1">Expiry Date<span className="text-critical-red">*</span></label>
                     <input type="date" className={inputCls} value={data.expiry_date} onChange={(e) => setData('expiry_date', e.target.value)} />
@@ -111,7 +137,6 @@ export default function StockReceivingIndex({ medicines, suppliers, records, ale
                     {errors.cost_price && <p className="text-critical-red text-[11px] mt-1">{errors.cost_price}</p>}
                 </div>
 
-                {/* Least Important */}
                 <div>
                     <label className="block text-[12px] font-semibold text-gray-700 mb-1">
                         Selling Price (₱) <span className="text-gray-400 font-normal"></span>
@@ -143,6 +168,14 @@ export default function StockReceivingIndex({ medicines, suppliers, records, ale
                     </button>
                 </div>
             </form>
+
+            {/* Success Card (Moved below the form) */}
+            {showAlert && (
+                <div id="success-alert" className="mb-4 bg-green-50 border border-green-200 text-green-800 p-4 rounded-[16px] text-[13px] shadow-sm animate-in fade-in slide-in-from-top-2">
+                    <h4 className="font-semibold mb-1"><i className="fas fa-check-circle mr-2" />Success</h4>
+                    <p>{alertMessage}</p>
+                </div>
+            )}
 
             <div className="bg-white rounded-[16px] shadow-sm border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto w-full">

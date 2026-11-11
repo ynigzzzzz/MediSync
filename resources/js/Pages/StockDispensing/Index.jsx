@@ -9,7 +9,7 @@ const inputCls = "w-full rounded-xl border border-transparent bg-[#F2F2F7] px-3 
 const lockedCls = "w-full rounded-xl border border-transparent bg-gray-100 px-3 py-2 text-[14px] text-gray-500 cursor-not-allowed";
 
 export default function Index({ medicines, stockOutRecords, expiredBatches = [], expiringBatches = [], alerts }) {
-    const { auth, flash, errors } = usePage().props;
+    const { auth, errors } = usePage().props;
     const role = auth.user.role;
     const canDelete = role === 'admin';
 
@@ -22,10 +22,22 @@ export default function Index({ medicines, stockOutRecords, expiredBatches = [],
     const [prescriptionNo, setPrescriptionNo] = useState('');
     const [processing, setProcessing] = useState(false);
     const [pendingDelete, setPendingDelete] = useState(null);
+    
+    // Success Alert State
+    const [showAlert, setShowAlert] = useState(false);
+    const [alertMessage, setAlertMessage] = useState('');
+
+    const triggerSuccess = (msg) => {
+        setAlertMessage(msg);
+        setShowAlert(true);
+        setTimeout(() => {
+            document.getElementById('success-alert')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+        setTimeout(() => setShowAlert(false), 4000);
+    };
 
     const rows = stockOutRecords?.data ?? [];
 
-    // Auto-fill Dosage and Price when selecting a medicine
     function handleMedicineChange(e) {
         const id = e.target.value;
         const med = medicines.find((m) => String(m.medicine_id) === id);
@@ -70,6 +82,7 @@ export default function Index({ medicines, stockOutRecords, expiredBatches = [],
                 setCart([]); 
                 setPatientName(''); 
                 setPrescriptionNo(''); 
+                triggerSuccess('Dispense transaction completed successfully!');
             },
             onFinish: () => setProcessing(false),
         });
@@ -77,6 +90,7 @@ export default function Index({ medicines, stockOutRecords, expiredBatches = [],
 
     function confirmDelete() {
         router.delete(`/dispensing/${pendingDelete}`, { 
+            onSuccess: () => triggerSuccess('Dispense record deleted and stock restored.'),
             onFinish: () => setPendingDelete(null) 
         });
     }
@@ -97,11 +111,6 @@ export default function Index({ medicines, stockOutRecords, expiredBatches = [],
                 <StatCard icon="fa-arrow-up" label="Recent Dispenses" value={stockOutRecords.total ?? 0} />
             </div>
 
-            {flash?.success && (
-                <div className="mb-4 bg-green-50 text-green-700 border border-green-200 rounded-xl p-3 text-[13px] font-medium flex items-center gap-2">
-                    <i className="fas fa-check-circle" /> {flash.success}
-                </div>
-            )}
             {errors?.dispense && (
                 <div className="mb-4 bg-red-50 text-red-700 border border-red-200 rounded-xl p-3 text-[13px] font-medium flex items-start gap-2">
                     <i className="fas fa-exclamation-circle mt-0.5" />
@@ -151,6 +160,14 @@ export default function Index({ medicines, stockOutRecords, expiredBatches = [],
                 </div>
             </div>
 
+            {/* Success Card (Moved below Add Item to Cart) */}
+            {showAlert && (
+                <div id="success-alert" className="mb-4 bg-green-50 border border-green-200 text-green-800 p-4 rounded-[16px] text-[13px] shadow-sm animate-in fade-in slide-in-from-top-2">
+                    <h4 className="font-semibold mb-1"><i className="fas fa-check-circle mr-2" />Success</h4>
+                    <p>{alertMessage}</p>
+                </div>
+            )}
+
             {cart.length > 0 && (
                 <div className="bg-white rounded-[16px] shadow-sm border border-gray-100 p-5 space-y-4 mb-4">
                     <h2 className="font-semibold text-gray-900 text-[15px]">Current Cart</h2>
@@ -170,7 +187,7 @@ export default function Index({ medicines, stockOutRecords, expiredBatches = [],
                                     <tr key={i} className="hover:bg-gray-50/50 transition-colors">
                                         <td className="px-4 py-3 text-gray-900 font-medium">{c.generic_name} ({c.brand_name})</td>
                                         <td className="px-4 py-3 text-gray-600">{c.quantity}</td>
-                                        <td className="px-4 py-3 text-gray-600">{c.dosage || '—'}</td>
+                                        <td className="px-4 py-3 text-gray-600">{c.dosage ? `${c.dosage}` : '—'}</td>
                                         <td className="px-4 py-3 text-gray-600">{c.price != null ? `₱${c.price.toFixed(2)}` : '—'}</td>
                                         <td className="px-4 py-3 text-right">
                                             <button onClick={() => removeFromCart(i)} className="text-critical-red text-[13px] font-semibold hover:underline">Remove</button>
@@ -178,6 +195,15 @@ export default function Index({ medicines, stockOutRecords, expiredBatches = [],
                                     </tr>
                                 ))}
                             </tbody>
+                            <tfoot>
+                                <tr className="border-t border-gray-200">
+                                    <td colSpan={3} className="px-4 py-3 text-right font-semibold text-gray-900">Total Amount:</td>
+                                    <td className="px-4 py-3 text-gray-900 font-bold">
+                                        ₱{cart.reduce((total, item) => total + (item.quantity * (item.price || 0)), 0).toFixed(2)}
+                                    </td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                     

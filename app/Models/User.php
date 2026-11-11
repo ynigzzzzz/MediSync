@@ -14,7 +14,6 @@ class User extends Authenticatable
 
     protected $primaryKey = 'user_id';
 
-    // This tells Laravel not to look for created_at or updated_at
     public $timestamps = false;
 
     protected $fillable = [
@@ -24,6 +23,7 @@ class User extends Authenticatable
         'role',
         'status',
         'profile_image',
+        'must_change_password',
     ];
 
     protected $hidden = [
@@ -32,6 +32,7 @@ class User extends Authenticatable
 
     protected $casts = [
         'created_at' => 'datetime',
+        'must_change_password' => 'boolean',
     ];
 
     /**
@@ -94,7 +95,6 @@ class User extends Authenticatable
 
     /**
      * Toggle the user's active status.
-     * Returns the new status string.
      */
     public function toggleStatus(): string
     {

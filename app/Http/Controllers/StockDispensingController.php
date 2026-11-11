@@ -24,15 +24,17 @@ class StockDispensingController extends Controller
             ->paginate(15)
             ->withQueryString();
 
+        // Strictly Expired (< today)
         $expiredBatches = StockIn::with('medicine:medicine_id,generic_name,brand_name')
             ->where('expiry_date', '<', now()->toDateString())
             ->where('remaining_quantity', '>', 0)
             ->orderBy('expiry_date')
             ->get();
 
+        // Strictly Expiring (>= today AND <= today + 30)
         $expiringBatches = StockIn::with('medicine:medicine_id,generic_name,brand_name')
-            ->where('expiry_date', '<=', now()->addDays(30)->toDateString())
             ->where('expiry_date', '>=', now()->toDateString())
+            ->where('expiry_date', '<=', now()->addDays(30)->toDateString())
             ->where('remaining_quantity', '>', 0)
             ->orderBy('expiry_date')
             ->get();
@@ -69,7 +71,6 @@ class StockDispensingController extends Controller
                         throw new \Exception('Medicine not found.');
                     }
 
-                    // Call the Fat Model method
                     $itemTotal = $medicine->dispense(
                         (int) $item['quantity'],
                         isset($item['price']) ? (float) $item['price'] : null,

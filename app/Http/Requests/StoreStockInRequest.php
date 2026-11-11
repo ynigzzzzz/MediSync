@@ -21,7 +21,7 @@ class StoreStockInRequest extends FormRequest
             'expiry_date' => ['required', 'date', 'after:today'],
             'supplier_id' => ['nullable', 'integer', Rule::exists('suppliers', 'supplier_id')],
             'supplier' => ['required_without:supplier_id', 'nullable', 'string', 'max:100'],
-            'delivery_date' => ['required', 'date'],
+            'delivery_date' => ['required', 'date', 'before_or_equal:expiry_date'], // <-- ADDED RULE
             'cost_price' => ['required', 'numeric', 'min:0.01'],
             'sell_price' => ['nullable', 'numeric', 'min:0'],
             'dosage' => ['nullable', 'string', 'max:50'],
@@ -32,6 +32,7 @@ class StoreStockInRequest extends FormRequest
     {
         return [
             'supplier.required_without' => 'Please pick a supplier or type one in.',
+            'delivery_date.before_or_equal' => 'The delivery date cannot be after the expiry date.',
         ];
     }
 }

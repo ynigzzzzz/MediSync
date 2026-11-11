@@ -9,6 +9,7 @@ use App\Models\Supplier;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -16,58 +17,77 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Create Users
+        $this->command->info('Cleaning old data (Preserving Admin)...');
+
+        // 1. FIND OR CREATE ADMIN
         $admin = User::firstOrCreate(
             ['email' => 'admin@medisync.test'],
-            ['full_name' => 'Ynigo Panisa', 'password_hash' => Hash::make('password123'), 'role' => 'admin', 'status' => 'active']
+            [
+                'full_name' => 'Ynigo Panisa',
+                'password_hash' => Hash::make('password123'),
+                'role' => 'admin',
+                'status' => 'active',
+            ]
         );
 
-        $pharmacist = User::firstOrCreate(
-            ['email' => 'pharmacist@medisync.test'],
-            ['full_name' => 'Marinel Delima', 'password_hash' => Hash::make('password789'), 'role' => 'pharmacist', 'status' => 'active']
-        );
+        // 2. TRUNCATE TABLES FIRST (This removes all foreign key references)
+        DB::statement('TRUNCATE TABLE stock_out CASCADE');
+        DB::statement('TRUNCATE TABLE stock_in CASCADE');
+        DB::statement('TRUNCATE TABLE medicines CASCADE');
+        DB::statement('TRUNCATE TABLE suppliers CASCADE');
+        DB::statement('TRUNCATE TABLE system_notifications CASCADE');
+        DB::statement('TRUNCATE TABLE contact_messages CASCADE');
+        DB::statement('TRUNCATE TABLE audit_log CASCADE');
 
-        $assistant = User::firstOrCreate(
-            ['email' => 'assistant@medisync.test'],
-            ['full_name' => 'Arnold Gabutero', 'password_hash' => Hash::make('password456'), 'role' => 'assistant', 'status' => 'active']
-        );
+        // 3. NOW SAFELY DELETE OTHER USERS
+        User::where('user_id', '!=', $admin->user_id)->delete();
 
-        for ($i = 1; $i <= 12; $i++) {
-            User::firstOrCreate(
-                ['email' => "staff{$i}@medisync.test"],
-                [
-                    'full_name' => 'Staff Member '.$i,
-                    'password_hash' => Hash::make('password123'),
-                    'role' => rand(1, 5) === 1 ? 'admin' : (rand(1, 2) === 1 ? 'pharmacist' : 'assistant'),
-                    'status' => rand(1, 10) === 1 ? 'inactive' : 'active',
-                    'created_at' => Carbon::now()->subDays(rand(1, 365)),
-                ]
-            );
-        }
+        $this->command->info('Data wiped clean. Generating 1 year of history...');
+
+        // 4. CREATE STAFF ACCOUNTS
+        $pharmacist = User::create([
+            'full_name' => 'Marinel Delima',
+            'email' => 'pharmacist@medisync.test',
+            'password_hash' => Hash::make('password123'),
+            'role' => 'pharmacist',
+            'status' => 'active',
+        ]);
+
+        $assistant = User::create([
+            'full_name' => 'Arnold Gabutero',
+            'email' => 'assistant@medisync.test',
+            'password_hash' => Hash::make('password123'),
+            'role' => 'assistant',
+            'status' => 'active',
+        ]);
+
+        User::create(['full_name' => 'Xyza Paz', 'email' => 'xyza@medisync.test', 'password_hash' => Hash::make('password123'), 'role' => 'pharmacist', 'status' => 'active']);
+        User::create(['full_name' => 'Dahn Gabutero', 'email' => 'dahn@medisync.test', 'password_hash' => Hash::make('password123'), 'role' => 'assistant', 'status' => 'inactive']);
+        User::create(['full_name' => 'Faith Magoncia', 'email' => 'faith@medisync.test', 'password_hash' => Hash::make('password123'), 'role' => 'pharmacist', 'status' => 'active']);
 
         $allUserIds = User::pluck('user_id')->toArray();
 
-        // 2. Create 10 Suppliers
-        $supplierBases = ['Zuellig', 'Unilab', 'MedExpress', 'Pfizer', 'GSK'];
-        foreach ($supplierBases as $base) {
-            for ($i = 1; $i <= 2; $i++) {
-                $name = $base.' Dist. '.$i;
-                Supplier::firstOrCreate(
-                    ['name' => $name],
-                    [
-                        'contact_person' => 'Rep '.Str::random(4),
-                        'phone' => '0917'.rand(1000000, 9999999),
-                        'email' => strtolower(str_replace(' ', '', $name)).'@example.com',
-                        'address' => rand(1, 500).' Main St, City',
-                        'status' => 'active',
-                        'created_at' => Carbon::now()->subDays(rand(1, 365)),
-                    ]
-                );
-            }
+        // 5. CREATE SUPPLIERS
+        $supplierNames = [
+            'Zuellig Pharma', 'Unilab Inc.', 'MedExpress', 'Pfizer PH', 'GlaxoSmithKline',
+            'Novartis', 'Sanofi', 'Roche', 'Merck', 'AstraZeneca',
+        ];
+
+        $supplierModels = [];
+        foreach ($supplierNames as $name) {
+            $supplierModels[] = Supplier::create([
+                'name' => $name,
+                'contact_person' => 'Rep '.Str::random(5),
+                'phone' => '0917'.rand(1000000, 9999999),
+                'email' => strtolower(str_replace(' ', '', $name)).'@example.com',
+                'address' => rand(1, 100).' Main St, City',
+                'status' => rand(1, 10) > 1 ? 'active' : 'inactive',
+                'created_at' => Carbon::now()->subDays(rand(300, 365)),
+            ]);
         }
         $allSupplierIds = Supplier::pluck('supplier_id')->toArray();
 
-        // 3. Create 30 Medicines
+        // 6. CREATE MEDICINES
         $medicinesData = [
             ['Paracetamol', 'Biogesic', 'Fever', 'Tablet', '500mg', 5.00],
             ['Mefenamic Acid', 'Ponstan', 'Painkillers', 'Capsule', '250mg', 8.50],
@@ -99,48 +119,54 @@ class DatabaseSeeder extends Seeder
             ['Ciprofloxacin', 'Cipro', 'Antibiotics', 'Tablet', '500mg', 20.00],
             ['Montelukast', 'Singulair', 'Allergies', 'Tablet', '10mg', 40.00],
             ['Budesonide', 'Pulmicort', 'Asthma', 'Inhaler', '200mcg', 450.00],
+            ['Tranexamic Acid', 'Cyklokapron', 'Bleeding', 'Tablet', '500mg', 25.00],
+            ['Methylergometrine', 'Methergine', 'Obstetrics', 'Tablet', '0.125mg', 20.00],
         ];
 
         $medicineModels = [];
         foreach ($medicinesData as $m) {
-            $medicineModels[] = Medicine::firstOrCreate(
-                ['generic_name' => $m[0], 'brand_name' => $m[1]],
-                [
-                    'category' => $m[2],
-                    'type' => $m[3],
-                    'dosage' => $m[4],
-                    'price' => $m[5],
-                    'current_stock' => 0,
-                    'created_at' => Carbon::now(),
-                ]
-            );
+            $medicineModels[] = Medicine::create([
+                'generic_name' => $m[0],
+                'brand_name' => $m[1],
+                'category' => $m[2],
+                'type' => $m[3],
+                'dosage' => $m[4],
+                'price' => $m[5],
+                'current_stock' => 0,
+                'created_at' => Carbon::now()->subDays(rand(300, 365)),
+            ]);
         }
 
-        // 4. Generate Balanced Historical Data
+        // 7. GENERATE 1 YEAR OF TRANSACTIONS
+        $this->command->info('Generating 1 year of Stock-In and Stock-Out records...');
+
         $now = Carbon::now();
 
         foreach ($medicineModels as $med) {
-            $numBatches = rand(2, 3);
-            $totalStock = 0;
-            $batchIds = [];
+            $currentStock = 0;
+            $numBatches = rand(12, 24);
 
             for ($i = 0; $i < $numBatches; $i++) {
-                $qty = rand(30, 80);
-                $cost = $med->price * 0.6;
-                $expiry = $now->copy()->addMonths(rand(3, 24));
+                $qty = rand(50, 300);
+                $cost = $med->price * (rand(50, 70) / 100);
+                $expiry = $now->copy()->addMonths(rand(6, 36));
 
-                if (rand(1, 10) <= 2) {
+                if (rand(1, 100) <= 15) {
                     $expiry = $now->copy()->addDays(rand(5, 25));
                 }
+                if (rand(1, 100) <= 5) {
+                    $expiry = $now->copy()->subDays(rand(5, 30));
+                }
 
-                $recordedAt = $now->copy()->subDays(rand(0, 60));
+                $daysAgo = rand(0, 365);
+                $recordedAt = $now->copy()->subDays($daysAgo);
 
                 $batch = StockIn::create([
                     'medicine_id' => $med->medicine_id,
                     'quantity' => $qty,
                     'batch_no' => 'BATCH-'.strtoupper(Str::random(8)),
                     'expiry_date' => $expiry,
-                    'supplier' => 'Supplier Name',
+                    'supplier' => 'Supplier',
                     'supplier_id' => $allSupplierIds[array_rand($allSupplierIds)],
                     'received_by' => $allUserIds[array_rand($allUserIds)],
                     'delivery_date' => $recordedAt,
@@ -151,45 +177,51 @@ class DatabaseSeeder extends Seeder
                     'recorded_at' => $recordedAt,
                 ]);
 
-                $batchIds[] = $batch->stock_in_id;
-                $totalStock += $qty;
+                $currentStock += $qty;
+
+                $dispensePercentage = rand(60, 90) / 100;
+                $targetDispense = floor($qty * $dispensePercentage);
+                $totalDispensed = 0;
+                $numDispenses = rand(5, 15);
+
+                for ($j = 0; $j < $numDispenses; $j++) {
+                    if ($totalDispensed >= $targetDispense) {
+                        break;
+                    }
+
+                    $dispenseQty = rand(1, 15);
+                    if ($totalDispensed + $dispenseQty > $targetDispense) {
+                        $dispenseQty = $targetDispense - $totalDispensed;
+                    }
+
+                    $maxDaysAfterReceive = min(180, $daysAgo);
+                    $dispensedAt = $recordedAt->copy()->addDays(rand(0, max(1, $maxDaysAfterReceive)));
+
+                    if ($dispensedAt->isFuture()) {
+                        $dispensedAt = $now->copy()->subHours(rand(1, 24));
+                    }
+
+                    StockOut::create([
+                        'medicine_id' => $med->medicine_id,
+                        'quantity' => $dispenseQty,
+                        'dosage' => $med->dosage,
+                        'price' => $med->price,
+                        'patient_name' => 'Patient '.strtoupper(Str::random(6)),
+                        'prescription_no' => 'RX-'.rand(10000, 99999),
+                        'dispensed_by' => $allUserIds[array_rand($allUserIds)],
+                        'dispensed_at' => $dispensedAt,
+                        'stock_in_id' => $batch->stock_in_id,
+                    ]);
+
+                    $batch->decrement('remaining_quantity', $dispenseQty);
+                    $totalDispensed += $dispenseQty;
+                    $currentStock -= $dispenseQty;
+                }
             }
 
-            $med->update(['current_stock' => $totalStock]);
-
-            $dispensePercentage = rand(60, 85) / 100;
-            $targetDispense = floor($totalStock * $dispensePercentage);
-            $totalDispensed = 0;
-            $dispenseCount = rand(15, 30);
-
-            for ($j = 0; $j < $dispenseCount; $j++) {
-                if ($totalDispensed >= $targetDispense) {
-                    break;
-                }
-
-                $dispenseQty = rand(1, 5);
-                if ($totalDispensed + $dispenseQty > $targetDispense) {
-                    $dispenseQty = $targetDispense - $totalDispensed;
-                }
-
-                $dispensedAt = $now->copy()->subDays(rand(0, 60));
-
-                StockOut::create([
-                    'medicine_id' => $med->medicine_id,
-                    'quantity' => $dispenseQty,
-                    'dosage' => $med->dosage,
-                    'price' => $med->price,
-                    'patient_name' => 'Patient '.Str::random(5),
-                    'prescription_no' => 'RX-'.rand(10000, 99999),
-                    'dispensed_by' => $allUserIds[array_rand($allUserIds)],
-                    'dispensed_at' => $dispensedAt,
-                    'stock_in_id' => $batchIds[array_rand($batchIds)],
-                ]);
-
-                $totalDispensed += $dispenseQty;
-            }
-
-            $med->update(['current_stock' => $totalStock - $totalDispensed]);
+            $med->update(['current_stock' => $currentStock]);
         }
+
+        $this->command->info('Seeding complete! System now has 1 year of transaction history.');
     }
 }

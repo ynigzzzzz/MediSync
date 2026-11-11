@@ -101,8 +101,8 @@ class DashboardController extends Controller
             }
         }
 
-        // ── 14-day activity series (units received vs dispensed per day) ──
-        $start = now()->subDays(13)->startOfDay();
+        // ── 30-day activity series (units received vs dispensed per day) ──
+        $start = now()->subDays(29)->startOfDay();
 
         $receivedByDay = StockIn::where('recorded_at', '>=', $start)
             ->selectRaw('DATE(recorded_at) as d, SUM(quantity) as total')
@@ -115,7 +115,7 @@ class DashboardController extends Controller
             ->pluck('total', 'd');
 
         $activity = [];
-        for ($i = 13; $i >= 0; $i--) {
+        for ($i = 29; $i >= 0; $i--) {
             $date = now()->subDays($i);
             $key = $date->toDateString();
             $activity[] = [

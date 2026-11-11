@@ -52,6 +52,7 @@ class UserManagementController extends Controller
             'role' => $validated['role'],
             'status' => $validated['status'],
             'profile_image' => $validated['profile_image'] ?? null,
+            'must_change_password' => true, // <-- FIXED: Comma instead of semicolon
         ]);
 
         AuditLog::record(
@@ -77,6 +78,7 @@ class UserManagementController extends Controller
 
         if (! empty($validated['password'])) {
             $validated['password_hash'] = Hash::make($validated['password']);
+            $validated['must_change_password'] = true; // Admin typed a new temp password
         }
         unset($validated['password']);
 

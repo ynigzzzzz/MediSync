@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import StatCard from '@/Components/StatCard';
@@ -28,6 +28,14 @@ export default function Index({ stats, trends, attention, activity, recentActivi
     const dispensedTrend = computeTrend(trends?.dispensed);
     const receivedTrend  = computeTrend(trends?.received);
     const [timeRange, setTimeRange] = useState('14d');
+
+    // Filter the activity data based on the selected timeframe
+    const filteredActivity = useMemo(() => {
+        if (!activity) return [];
+        if (timeRange === '7d') return activity.slice(-7);
+        if (timeRange === '14d') return activity.slice(-14);
+        return activity; // '30d' defaults to the full array
+    }, [activity, timeRange]);
 
     return (
         <AuthenticatedLayout>
@@ -101,14 +109,14 @@ export default function Index({ stats, trends, attention, activity, recentActivi
                     </CardContent>
                 </Card>
 
-                {/* 2. Stacked Bar Chart */}
+                {/* 2. Stacked Bar Chart (Now uses filteredActivity) */}
                 <Card className="lg:col-span-2">
                     <CardHeader className="pb-2">
                         <CardTitle>Daily Intake vs Outtake</CardTitle>
                         <CardDescription>Units received and dispensed per day.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <StackedBarChart data={activity} />
+                        <StackedBarChart data={filteredActivity} />
                     </CardContent>
                 </Card>
 

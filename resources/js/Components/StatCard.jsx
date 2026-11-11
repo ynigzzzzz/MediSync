@@ -33,7 +33,7 @@ export default function StatCard({ icon, label, value, tone = 'default', trend, 
         <Tag
             onClick={onClick}
             className={cn(
-                'relative overflow-hidden text-left bg-white rounded-[16px] p-4 w-full shadow-sm border border-gray-100 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5',
+                'relative text-left bg-white rounded-[16px] p-4 w-full shadow-sm border border-gray-100 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5',
                 active ? 'ring-2 ring-inset ring-[#FF4D79] border-transparent' : '',
             )}
         >
@@ -51,7 +51,7 @@ export default function StatCard({ icon, label, value, tone = 'default', trend, 
                             <TooltipTrigger asChild>
                                 <i className="fas fa-circle-info text-[10px] text-gray-300 hover:text-gray-500 transition-colors cursor-help" />
                             </TooltipTrigger>
-                            <TooltipContent>
+                            <TooltipContent side="bottom" align="start" className="max-w-[220px] text-center">
                                 <p>{tooltip}</p>
                             </TooltipContent>
                         </Tooltip>

@@ -173,7 +173,7 @@ export default function Index({ inventory, receiving, dispensing, supplierSummar
                         <StatCard icon="fa-boxes-stacked" label="Units Dispensed" value={overall?.total_dispensed_units?.toLocaleString()} tooltip={`${overall?.total_received_units?.toLocaleString()} units received in total.`} />
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
                         {/* Top 5 Medicines Donut */}
                         <Card className="lg:col-span-1">
                             <CardHeader>
@@ -247,23 +247,8 @@ export default function Index({ inventory, receiving, dispensing, supplierSummar
                     </div>
 
                     {invTab === 'overview' && (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                            <Card className="lg:col-span-1 flex flex-col items-center justify-center">
-                                <CardHeader className="w-full text-center pb-0">
-                                    <CardTitle>Inventory Health</CardTitle>
-                                </CardHeader>
-                                <CardContent className="flex flex-col items-center">
-                                    <RadialChart 
-                                        data={[{ name: 'Health', value: Math.round(((inventory.total_medicines - inventory.out_of_stock) / inventory.total_medicines) * 100) || 0, fill: '#2E7D64' }]} 
-                                        value={`${Math.round(((inventory.total_medicines - inventory.out_of_stock) / inventory.total_medicines) * 100) || 0}%`}
-                                        label="Healthy" 
-                                    />
-                                    <p className="text-[12px] text-gray-500 text-center mt-2">
-                                        {inventory.total_medicines - inventory.out_of_stock} out of {inventory.total_medicines} items are in stock.
-                                    </p>
-                                </CardContent>
-                            </Card>
-                            
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+                            {/* Full Inventory Table (Now on the Left) */}
                             <Card className="lg:col-span-2">
                                 <CardHeader><CardTitle>Full Inventory</CardTitle></CardHeader>
                                 <CardContent className="p-0 overflow-x-auto">
@@ -291,6 +276,23 @@ export default function Index({ inventory, receiving, dispensing, supplierSummar
                                             ))}
                                         </tbody>
                                     </table>
+                                </CardContent>
+                            </Card>
+
+                            {/* Inventory Health (Now on the Right, fixed height) */}
+                            <Card className="lg:col-span-1 flex flex-col items-center">
+                                <CardHeader className="w-full text-center pb-0">
+                                    <CardTitle>Inventory Health</CardTitle>
+                                </CardHeader>
+                                <CardContent className="flex flex-col items-center w-full">
+                                    <RadialChart 
+                                        data={[{ name: 'Health', value: Math.round(((inventory.total_medicines - inventory.out_of_stock) / inventory.total_medicines) * 100) || 0, fill: '#2E7D64' }]} 
+                                        value={`${Math.round(((inventory.total_medicines - inventory.out_of_stock) / inventory.total_medicines) * 100) || 0}%`}
+                                        label="Healthy" 
+                                    />
+                                    <p className="text-[12px] text-gray-500 text-center mt-2">
+                                        {inventory.total_medicines - inventory.out_of_stock} out of {inventory.total_medicines} items are in stock.
+                                    </p>
                                 </CardContent>
                             </Card>
                         </div>
@@ -355,7 +357,7 @@ export default function Index({ inventory, receiving, dispensing, supplierSummar
                     </div>
 
                     {recvTab === 'summary' && (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
                             <Card className="lg:col-span-2">
                                 <CardHeader><CardTitle>Daily Receiving</CardTitle></CardHeader>
                                 <CardContent>
@@ -441,7 +443,7 @@ export default function Index({ inventory, receiving, dispensing, supplierSummar
                     </div>
 
                     {dispTab === 'summary' && (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
                             <Card className="lg:col-span-2">
                                 <CardHeader><CardTitle>Daily Dispensing</CardTitle></CardHeader>
                                 <CardContent>
@@ -488,7 +490,8 @@ export default function Index({ inventory, receiving, dispensing, supplierSummar
 
                 {/* ═══════════════ SUPPLIERS ═══════════════ */}
                 <TabsContent value="suppliers" className="mt-0">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    {/* Added items-start here to stop the checklist from stretching down */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
                         <Card className="lg:col-span-2">
                             <CardHeader><CardTitle>Supplier Directory</CardTitle></CardHeader>
                             <CardContent className="p-0 overflow-x-auto">

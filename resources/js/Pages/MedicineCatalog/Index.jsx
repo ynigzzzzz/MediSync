@@ -14,17 +14,29 @@ const DEFAULT_TYPES = ['Tablet', 'Capsule', 'Syrup', 'Suspension', 'Injection', 
 const DEFAULT_CATEGORIES = ['Allergies', 'Stomach Pain', 'Headache', 'Fever', 'Cough', 'Antibiotic', 'Vitamins'];
 
 export default function Index({ medicines, stats, activeFilter, expiringBatches }) {
-    const { auth, flash, errors } = usePage().props;
+    const { auth, errors } = usePage().props;
     const role = auth.user.role;
     const canEdit = role !== 'assistant';
 
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [form, setForm] = useState(emptyForm);
-    const [message, setMessage] = useState(flash?.message || null);
     const [pendingDelete, setPendingDelete] = useState(null);
     const [selectedBatches, setSelectedBatches] = useState([]);
     const [localError, setLocalError] = useState('');
+    
+    // Success Alert State
+    const [showAlert, setShowAlert] = useState(false);
+    const [alertMessage, setAlertMessage] = useState('');
+
+    const triggerSuccess = (msg) => {
+        setAlertMessage(msg);
+        setShowAlert(true);
+        setTimeout(() => {
+            document.getElementById('success-alert')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+        setTimeout(() => setShowAlert(false), 4000);
+    };
 
     const rows = medicines?.data ?? [];
     const batches = expiringBatches?.data ?? [];
@@ -68,15 +80,19 @@ export default function Index({ medicines, stats, activeFilter, expiringBatches 
 
         const url = editingId ? `/medicine-list/${editingId}` : '/medicine-list';
         const method = editingId ? 'put' : 'post';
+        
         router[method](url, form, {
-            onSuccess: () => { setShowForm(false); setMessage('Saved.'); },
+            onSuccess: () => { 
+                setShowForm(false); 
+                triggerSuccess(editingId ? 'Medicine updated successfully.' : 'Medicine added successfully.');
+            },
             preserveScroll: true,
         });
     }
 
     function confirmDelete() {
         router.delete(`/medicine-list/${pendingDelete.medicine_id}`, {
-            preserveScroll: true,
+            onSuccess: () => triggerSuccess('Medicine deleted successfully.'),
             onFinish: () => setPendingDelete(null),
         });
     }
@@ -88,7 +104,11 @@ export default function Index({ medicines, stats, activeFilter, expiringBatches 
     function confirmDispose() {
         if (selectedBatches.length === 0) return;
         router.post('/medicine-list/dispose', { batch_ids: selectedBatches }, {
-            onSuccess: () => { setSelectedBatches([]); applyFilter('all'); }
+            onSuccess: () => { 
+                setSelectedBatches([]); 
+                triggerSuccess('Selected batches disposed successfully.');
+                applyFilter('all'); 
+            }
         });
     }
 
@@ -110,13 +130,6 @@ export default function Index({ medicines, stats, activeFilter, expiringBatches 
                 )}
             </div>
 
-            {message && <div className="mb-4 bg-green-50 text-green-700 border border-green-200 rounded-xl p-3 text-[13px] font-medium">{message}</div>}
-            {(errors?.generic_name || localError) && (
-                <div className="mb-4 bg-red-50 text-red-700 border border-red-200 rounded-xl p-3 text-[13px] font-medium">
-                    {localError || errors.generic_name}
-                </div>
-            )}
-
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <StatCard label="Total Medicines" value={stats.total} icon="fa-capsules" onClick={() => applyFilter('all')} active={activeFilter === 'all'} />
                 <StatCard label="Low Stock" value={stats.lowstock} icon="fa-triangle-exclamation" tone="warning" onClick={() => applyFilter('lowstock')} active={activeFilter === 'lowstock'} />
@@ -124,7 +137,19 @@ export default function Index({ medicines, stats, activeFilter, expiringBatches 
                 <StatCard label="Expiring (30 Days)" value={stats.expiring} icon="fa-hourglass-half" tone="warning" onClick={() => applyFilter('expiring')} active={activeFilter === 'expiring'} />
             </div>
 
-            {/* Removed the ExpiryWarning component here as it's not defined anymore */}
+            {/* Success Card (Moved below stat cards) */}
+            {showAlert && (
+                <div id="success-alert" className="mb-4 bg-green-50 border border-green-200 text-green-800 p-4 rounded-[16px] text-[13px] shadow-sm animate-in fade-in slide-in-from-top-2">
+                    <h4 className="font-semibold mb-1"><i className="fas fa-check-circle mr-2" />Success</h4>
+                    <p>{alertMessage}</p>
+                </div>
+            )}
+
+            {(errors?.generic_name || localError) && (
+                <div className="mb-4 bg-red-50 text-red-700 border border-red-200 rounded-xl p-3 text-[13px] font-medium">
+                    {localError || errors.generic_name}
+                </div>
+            )}
 
             {showForm && (
                 <div className="bg-white rounded-[16px] shadow-sm border border-gray-100 p-5 mb-4 space-y-4">
@@ -141,23 +166,11 @@ export default function Index({ medicines, stats, activeFilter, expiringBatches 
                             </div>
                             <div>
                                 <label className="block text-[12px] font-semibold text-gray-700 mb-1">Type<span className="text-critical-red">*</span></label>
-                                <SearchableSelect 
-                                    value={form.type} 
-                                    onChange={(val) => setForm({ ...form, type: val })} 
-                                    options={allTypes} 
-                                    placeholder="Select type..." 
-                                    allowCustom={true}
-                                />
+                                <SearchableSelect value={form.type} onChange={(val) => setForm({ ...form, type: val })} options={allTypes} placeholder="Select type..." allowCustom={true} />
                             </div>
                             <div>
                                 <label className="block text-[12px] font-semibold text-gray-700 mb-1">Category<span className="text-critical-red">*</span></label>
-                                <SearchableSelect 
-                                    value={form.category} 
-                                    onChange={(val) => setForm({ ...form, category: val })} 
-                                    options={allCategories} 
-                                    placeholder="Select category..." 
-                                    allowCustom={true}
-                                />
+                                <SearchableSelect value={form.category} onChange={(val) => setForm({ ...form, category: val })} options={allCategories} placeholder="Select category..." allowCustom={true} />
                             </div>
                             <div>
                                 <label className="block text-[12px] font-semibold text-gray-700 mb-1">Dosage<span className="text-critical-red">*</span></label>

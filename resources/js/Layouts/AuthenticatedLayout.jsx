@@ -117,19 +117,20 @@ export default function AuthenticatedLayout({ children }) {
 
                     <NotificationBell />
 
-                    <div className="flex items-center gap-2 ml-1 pl-3 border-l border-gray-200">
-                        {auth.user?.profile_image ? (
-                            <img src={`/storage/${auth.user.profile_image}`} className="w-8 h-8 rounded-full object-cover shadow-sm" alt="" />
-                        ) : (
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#FFB7CE] to-[#FF4D79] text-white flex items-center justify-center font-bold text-xs shadow-sm">
-                                <i className="fas fa-user" />
-                            </div>
-                        )}
-                        <div className="text-[13px]">
-                            <div className="font-semibold text-gray-900 leading-tight">{auth.user?.full_name}</div>
-                            <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">{role}</div>
-                        </div>
-                    </div>
+                    <Link href="/profile" className="flex items-center gap-2 ml-1 hover:bg-gray-50 p-1.5 rounded-xl transition-colors">
+    {auth.user?.profile_image ? (
+        <img src={`/storage/${auth.user.profile_image}`} className="w-8 h-8 rounded-full object-cover shadow-sm" alt="" />
+    ) : (
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#FFB7CE] to-[#FF4D79] text-white flex items-center justify-center font-bold text-xs shadow-sm">
+            <i className="fas fa-user" />
+        </div>
+    )}
+    <div className="text-[13px]">
+        <div className="font-semibold text-gray-900 leading-tight">{auth.user?.full_name}</div>
+        <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">{role}</div>
+    </div>
+    <i className="fas fa-chevron-down text-[10px] text-gray-400 ml-1" />
+</Link>
                 </header>
 
                 {/* Scrollable Page Content */}

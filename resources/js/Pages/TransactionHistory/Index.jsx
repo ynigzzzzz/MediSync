@@ -24,12 +24,30 @@ export default function Index({ transactions, totalFilteredRecords, stockInTotal
 
     const exportCsv = () => {
         const params = new URLSearchParams(form).toString();
-        window.location.href = `${route('transaction-history.export')}?${params}`;
+        const url = `${route('transaction-history.export')}?${params}`;
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     };
 
     return (
         <AuthenticatedLayout>
             <Head title="Transaction History" />
+
+            {/* ADDED: Print Styles */}
+            <style>{`
+                @media print {
+                    body * { visibility: hidden; }
+                    .print-area, .print-area * { visibility: visible; }
+                    .print-area { position: absolute; left: 0; top: 0; width: 100%; }
+                    .no-print { display: none !important; }
+                }
+            `}</style>
 
             <div className="mb-5">
                 <h2 className="text-2xl font-semibold tracking-tight text-gray-900">Transaction History</h2>
@@ -43,42 +61,42 @@ export default function Index({ transactions, totalFilteredRecords, stockInTotal
                 <StatCard icon="fa-chart-line" label="Net Change" value={(stockInTotal - stockOutTotal).toLocaleString()} />
             </div>
 
-            <form onSubmit={applyFilters} className="grid grid-cols-1 md:grid-cols-6 gap-4 bg-white rounded-[16px] shadow-sm border border-gray-100 p-5 mb-4 items-end">
-    <div className="md:col-span-2">
-        <label className="block text-[12px] font-semibold text-gray-700 mb-1">Search</label>
-        <input className={inputCls} placeholder="Medicine, Patient, Supplier..." value={form.search} onChange={(e) => setForm({ ...form, search: e.target.value })} />
-    </div>
-    <div>
-        <label className="block text-[12px] font-semibold text-gray-700 mb-1">Type</label>
-        <select className={inputCls} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-            <option value="all">All Types</option>
-            <option value="Stock-In">Stock-In</option>
-            <option value="Stock-Out">Stock-Out</option>
-        </select>
-    </div>
-    <div>
-        <label className="block text-[12px] font-semibold text-gray-700 mb-1">Date From</label>
-        <input type="date" className={inputCls} value={form.date_from} onChange={(e) => setForm({ ...form, date_from: e.target.value })} />
-    </div>
-    <div>
-        <label className="block text-[12px] font-semibold text-gray-700 mb-1">Date To</label>
-        <input type="date" className={inputCls} value={form.date_to} onChange={(e) => setForm({ ...form, date_to: e.target.value })} />
-    </div>
-    <div>
-        <label className="block text-[12px] font-semibold text-gray-700 mb-1">User</label>
-        <select className={inputCls} value={form.user} onChange={(e) => setForm({ ...form, user: e.target.value })}>
-            <option value="all">All Users</option>
-            {users.map((u) => <option key={u} value={u}>{u}</option>)}
-        </select>
-    </div>
-    <div className="md:col-span-6 flex justify-end pt-1">
-        <button type="submit" className="rounded-full bg-gray-900 text-white text-[13px] font-semibold px-6 py-2.5 hover:bg-black transition-colors shadow-sm">
-            Apply Filters
-        </button>
-    </div>
-</form>
+            <form onSubmit={applyFilters} className="no-print grid grid-cols-1 md:grid-cols-6 gap-4 bg-white rounded-[16px] shadow-sm border border-gray-100 p-5 mb-4 items-end">
+                <div className="md:col-span-2">
+                    <label className="block text-[12px] font-semibold text-gray-700 mb-1">Search</label>
+                    <input className={inputCls} placeholder="Medicine, Patient, Supplier..." value={form.search} onChange={(e) => setForm({ ...form, search: e.target.value })} />
+                </div>
+                <div>
+                    <label className="block text-[12px] font-semibold text-gray-700 mb-1">Type</label>
+                    <select className={inputCls} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+                        <option value="all">All Types</option>
+                        <option value="Stock-In">Stock-In</option>
+                        <option value="Stock-Out">Stock-Out</option>
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-[12px] font-semibold text-gray-700 mb-1">Date From</label>
+                    <input type="date" className={inputCls} value={form.date_from} onChange={(e) => setForm({ ...form, date_from: e.target.value })} />
+                </div>
+                <div>
+                    <label className="block text-[12px] font-semibold text-gray-700 mb-1">Date To</label>
+                    <input type="date" className={inputCls} value={form.date_to} onChange={(e) => setForm({ ...form, date_to: e.target.value })} />
+                </div>
+                <div>
+                    <label className="block text-[12px] font-semibold text-gray-700 mb-1">User</label>
+                    <select className={inputCls} value={form.user} onChange={(e) => setForm({ ...form, user: e.target.value })}>
+                        <option value="all">All Users</option>
+                        {users.map((u) => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                </div>
+                <div className="md:col-span-6 flex justify-end pt-1">
+                    <button type="submit" className="rounded-full bg-gray-900 text-white text-[13px] font-semibold px-6 py-2.5 hover:bg-black transition-colors shadow-sm">
+                        Apply Filters
+                    </button>
+                </div>
+            </form>
 
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+            <div className="no-print flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
                 <p className="text-[13px] text-gray-500 font-medium">
                     {totalFilteredRecords} record(s) match filters.
                 </p>
@@ -92,7 +110,7 @@ export default function Index({ transactions, totalFilteredRecords, stockInTotal
                 </div>
             </div>
 
-            <div className="bg-white rounded-[16px] shadow-sm border border-gray-100 overflow-hidden">
+            <div className="print-area bg-white rounded-[16px] shadow-sm border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto w-full">
                     <table className="w-full min-w-[1000px] text-left text-[13px]">
                         <thead>
@@ -137,7 +155,9 @@ export default function Index({ transactions, totalFilteredRecords, stockInTotal
                         </tbody>
                     </table>
                 </div>
-                <Pagination meta={transactions} label="transactions" />
+                <div className="no-print">
+                    <Pagination meta={transactions} label="transactions" />
+                </div>
             </div>
         </AuthenticatedLayout>
     );

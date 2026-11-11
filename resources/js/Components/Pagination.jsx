@@ -31,8 +31,8 @@ export default function Pagination({ meta, label = 'records' }) {
     }
 
     return (
-        <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-charcoal-blue opacity-60">
+        <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between border-t border-gray-100">
+            <p className="text-xs text-gray-500">
                 Showing <span className="font-medium">{from}</span>–<span className="font-medium">{to}</span> of{' '}
                 <span className="font-medium">{total}</span> {label}
             </p>
@@ -43,12 +43,12 @@ export default function Pagination({ meta, label = 'records' }) {
                     <Link
                         href={meta.links?.[0]?.url || '#'}
                         preserveScroll
-                        className="rounded-lg border border-eggshell px-3 py-1.5 text-xs font-medium text-charcoal-blue transition-colors hover:bg-cherry-blossom hover:text-burnt-rose"
+                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-cherry-blossom hover:text-burnt-rose"
                     >
                         <i className="fas fa-chevron-left mr-1" /> Prev
                     </Link>
                 ) : (
-                    <span className="rounded-lg border border-eggshell px-3 py-1.5 text-xs font-medium text-charcoal-blue opacity-40">
+                    <span className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-400 opacity-50 cursor-not-allowed">
                         <i className="fas fa-chevron-left mr-1" /> Prev
                     </span>
                 )}
@@ -56,7 +56,7 @@ export default function Pagination({ meta, label = 'records' }) {
                 {/* Numbered pages with ellipsis */}
                 {pages.map((p, i) =>
                     p === '…' ? (
-                        <span key={`gap-${i}`} className="px-2 text-xs text-charcoal-blue opacity-60">
+                        <span key={`gap-${i}`} className="px-2 text-xs text-gray-400">
                             …
                         </span>
                     ) : (
@@ -68,7 +68,7 @@ export default function Pagination({ meta, label = 'records' }) {
                                 'min-w-[32px] rounded-lg px-2.5 py-1.5 text-center text-xs font-medium transition-colors ' +
                                 (p === current
                                     ? 'bg-cherry-blossom text-charcoal-blue'
-                                    : 'border border-eggshell text-charcoal-blue hover:bg-cherry-blossom hover:text-burnt-rose')
+                                    : 'border border-gray-200 text-gray-700 hover:bg-cherry-blossom hover:text-burnt-rose')
                             }
                         >
                             {p}
@@ -81,12 +81,12 @@ export default function Pagination({ meta, label = 'records' }) {
                     <Link
                         href={meta.links?.[meta.links.length - 1]?.url || '#'}
                         preserveScroll
-                        className="rounded-lg border border-eggshell px-3 py-1.5 text-xs font-medium text-charcoal-blue transition-colors hover:bg-cherry-blossom hover:text-burnt-rose"
+                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-cherry-blossom hover:text-burnt-rose"
                     >
                         Next <i className="fas fa-chevron-right ml-1" />
                     </Link>
                 ) : (
-                    <span className="rounded-lg border border-eggshell px-3 py-1.5 text-xs font-medium text-charcoal-blue opacity-40">
+                    <span className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-400 opacity-50 cursor-not-allowed">
                         Next <i className="fas fa-chevron-right ml-1" />
                     </span>
                 )}

@@ -12,6 +12,7 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TransactionHistoryController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\ForcePasswordChange;
 use App\Http\Middleware\SyncStockAlerts;
 use Illuminate\Support\Facades\Route;
 
@@ -82,6 +83,15 @@ Route::middleware([
     // Contact
     Route::get('/contact', [ContactController::class, 'create'])->name('contact.index');
     Route::post('/contact', [ContactController::class, 'store'])->name('contact.store');
+
+    Route::middleware([
+        'auth',
+        EnsureUserIsActive::class,
+        SyncStockAlerts::class,
+        ForcePasswordChange::class, // <-- Add this line
+    ])->group(function () {
+        // ... all your routes ...
+    });
 });
 
 require __DIR__.'/auth.php';

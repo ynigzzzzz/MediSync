@@ -69,6 +69,7 @@ function Banner({ tone = 'error', children }) {
 export default function Login({ status, canResetPassword = true }) {
     const [mode, setMode] = useState('signin');
     const [showPassword, setShowPassword] = useState(false);
+    const [resetSent, setResetSent] = useState(false); // <-- ADDED: Success state
 
     const form = useForm({ email: '', password: '' });
     const resetForm = useForm({ email: '' });
@@ -78,6 +79,7 @@ export default function Login({ status, canResetPassword = true }) {
     const switchMode = (next) => {
         form.clearErrors();
         resetForm.clearErrors();
+        setResetSent(false); // <-- ADDED: Reset success state when switching modes
         setMode(next);
     };
 
@@ -88,7 +90,10 @@ export default function Login({ status, canResetPassword = true }) {
 
     const submitReset = (e) => {
         e.preventDefault();
-        resetForm.post(route('password.email'));
+        // <-- ADDED: onSuccess handler to trigger the success screen
+        resetForm.post(route('password.email'), {
+            onSuccess: () => setResetSent(true),
+        });
     };
 
     return (
@@ -160,137 +165,158 @@ export default function Login({ status, canResetPassword = true }) {
                     </div>
 
                     <div className="mx-auto w-full max-w-sm">
-                        <div className="mb-8">
-                            <p className="mb-3 text-[12px] font-bold uppercase tracking-[0.2em] text-[#FF4D79]">
-                                Pharmacy Inventory System
-                            </p>
-                            <h1 className="mb-2 text-3xl font-bold tracking-tight text-gray-900">
-                                {signingIn ? 'Welcome back' : 'Reset password'}
-                            </h1>
-                            <p className="text-[15px] text-gray-500">
-                                {signingIn
-                                    ? 'Enter your credentials to access your account.'
-                                    : "Enter your email and we'll send you a secure reset link."}
-                            </p>
-                        </div>
-
-                        {status && <Banner tone="success">{status}</Banner>}
-                        {signingIn && form.errors.email && <Banner>{form.errors.email}</Banner>}
-
-                        {signingIn ? (
-                            <form onSubmit={submit} className="space-y-5">
-                                <div className="space-y-1.5">
-                                    <label htmlFor="email" className="text-[13px] font-medium text-gray-700">
-                                        Email address
-                                    </label>
-                                    <div className="relative">
-                                        <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                                            <i className="fas fa-envelope text-gray-400" />
-                                        </span>
-                                        <input
-                                            id="email"
-                                            type="email"
-                                            autoComplete="username"
-                                            autoFocus
-                                            required
-                                            value={form.data.email}
-                                            onChange={(e) => form.setData('email', e.target.value)}
-                                            className={`${inputClass} pl-11 pr-4`}
-                                            placeholder="admin@medisync.test"
-                                        />
-                                    </div>
+                        {/* ADDED: Show this if reset link was successfully sent */}
+                        {resetSent ? (
+                            <div className="text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-success-green/10">
+                                    <i className="fas fa-envelope-circle-check text-4xl text-success-green" />
                                 </div>
-
-                                <div className="space-y-1.5">
-                                    <div className="flex items-center justify-between">
-                                        <label htmlFor="password" className="text-[13px] font-medium text-gray-700">
-                                            Password
-                                        </label>
-                                        {canResetPassword && (
-                                            <button
-                                                type="button"
-                                                onClick={() => switchMode('reset')}
-                                                className="text-[13px] font-medium text-[#FF4D79] transition-colors hover:text-gray-900"
-                                            >
-                                                Forgot password?
-                                            </button>
-                                        )}
-                                    </div>
-                                    <div className="relative">
-                                        <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                                            <i className="fas fa-lock text-gray-400" />
-                                        </span>
-                                        <input
-                                            id="password"
-                                            type={showPassword ? 'text' : 'password'}
-                                            autoComplete="current-password"
-                                            required
-                                            value={form.data.password}
-                                            onChange={(e) => form.setData('password', e.target.value)}
-                                            className={`${inputClass} pl-11 pr-12`}
-                                            placeholder="••••••••"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            aria-label={showPassword ? 'Hide password' : 'Show password'}
-                                            className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 transition-colors hover:text-gray-900 focus:outline-none"
-                                        >
-                                            <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`} />
-                                        </button>
-                                    </div>
-                                    {form.errors.password && <p className="mt-1 text-xs text-red-500">{form.errors.password}</p>}
-                                </div>
-
-                                <button type="submit" disabled={form.processing} className={primaryButtonClass}>
-                                    {form.processing ? (
-                                        <>
-                                            <i className="fas fa-circle-notch fa-spin" /> Signing in...
-                                        </>
-                                    ) : (
-                                        'Sign In'
-                                    )}
-                                </button>
-                            </form>
-                        ) : (
-                            <form onSubmit={submitReset} className="space-y-5">
-                                <div className="space-y-1.5">
-                                    <label htmlFor="reset-email" className="text-[13px] font-medium text-gray-700">
-                                        Email address
-                                    </label>
-                                    <div className="relative">
-                                        <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                                            <i className="fas fa-envelope text-gray-400" />
-                                        </span>
-                                        <input
-                                            id="reset-email"
-                                            type="email"
-                                            autoComplete="email"
-                                            autoFocus
-                                            required
-                                            value={resetForm.data.email}
-                                            onChange={(e) => resetForm.setData('email', e.target.value)}
-                                            className={`${inputClass} pl-11 pr-4`}
-                                            placeholder="admin@medisync.test"
-                                        />
-                                    </div>
-                                    {resetForm.errors.email && <p className="mt-1 text-xs text-red-500">{resetForm.errors.email}</p>}
-                                </div>
-
-                                <button type="submit" disabled={resetForm.processing} className={primaryButtonClass}>
-                                    {resetForm.processing ? 'Sending...' : 'Send reset link'}
-                                </button>
-
+                                <h2 className="mb-2 text-3xl font-bold tracking-tight text-gray-900">Check your inbox</h2>
+                                <p className="mb-8 text-[15px] text-gray-500">
+                                    We've sent a secure password reset link to your email address.
+                                </p>
                                 <button
                                     type="button"
                                     onClick={() => switchMode('signin')}
-                                    className="w-full py-2 text-center text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
+                                    className={primaryButtonClass}
                                 >
-                                    <i className="fas fa-arrow-left mr-1.5" /> Back to sign in
+                                    Back to Sign In
                                 </button>
-                            </form>
-                        )}
+                            </div>
+                        ) : (
+                            <>
+                                <div className="mb-8">
+                                    <p className="mb-3 text-[12px] font-bold uppercase tracking-[0.2em] text-[#FF4D79]">
+                                        Pharmacy Inventory System
+                                    </p>
+                                    <h1 className="mb-2 text-3xl font-bold tracking-tight text-gray-900">
+                                        {signingIn ? 'Welcome back' : 'Reset password'}
+                                    </h1>
+                                    <p className="text-[15px] text-gray-500">
+                                        {signingIn
+                                            ? 'Enter your credentials to access your account.'
+                                            : "Enter your email and we'll send you a secure reset link."}
+                                    </p>
+                                </div>
 
+                                {status && <Banner tone="success">{status}</Banner>}
+                                {signingIn && form.errors.email && <Banner>{form.errors.email}</Banner>}
+
+                                {signingIn ? (
+                                    <form onSubmit={submit} className="space-y-5">
+                                        <div className="space-y-1.5">
+                                            <label htmlFor="email" className="text-[13px] font-medium text-gray-700">
+                                                Email address
+                                            </label>
+                                            <div className="relative">
+                                                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                                                    <i className="fas fa-envelope text-gray-400" />
+                                                </span>
+                                                <input
+                                                    id="email"
+                                                    type="email"
+                                                    autoComplete="username"
+                                                    autoFocus
+                                                    required
+                                                    value={form.data.email}
+                                                    onChange={(e) => form.setData('email', e.target.value)}
+                                                    className={`${inputClass} pl-11 pr-4`}
+                                                    placeholder="admin@medisync.test"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <div className="flex items-center justify-between">
+                                                <label htmlFor="password" className="text-[13px] font-medium text-gray-700">
+                                                    Password
+                                                </label>
+                                                {canResetPassword && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => switchMode('reset')}
+                                                        className="text-[13px] font-medium text-[#FF4D79] transition-colors hover:text-gray-900"
+                                                    >
+                                                        Forgot password?
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <div className="relative">
+                                                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                                                    <i className="fas fa-lock text-gray-400" />
+                                                </span>
+                                                <input
+                                                    id="password"
+                                                    type={showPassword ? 'text' : 'password'}
+                                                    autoComplete="current-password"
+                                                    required
+                                                    value={form.data.password}
+                                                    onChange={(e) => form.setData('password', e.target.value)}
+                                                    className={`${inputClass} pl-11 pr-12`}
+                                                    placeholder="••••••••"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                                    className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 transition-colors hover:text-gray-900 focus:outline-none"
+                                                >
+                                                    <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`} />
+                                                </button>
+                                            </div>
+                                            {form.errors.password && <p className="mt-1 text-xs text-red-500">{form.errors.password}</p>}
+                                        </div>
+
+                                        <button type="submit" disabled={form.processing} className={primaryButtonClass}>
+                                            {form.processing ? (
+                                                <>
+                                                    <i className="fas fa-circle-notch fa-spin" /> Signing in...
+                                                </>
+                                            ) : (
+                                                'Sign In'
+                                            )}
+                                        </button>
+                                    </form>
+                                ) : (
+                                    <form onSubmit={submitReset} className="space-y-5">
+                                        <div className="space-y-1.5">
+                                            <label htmlFor="reset-email" className="text-[13px] font-medium text-gray-700">
+                                                Email address
+                                            </label>
+                                            <div className="relative">
+                                                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                                                    <i className="fas fa-envelope text-gray-400" />
+                                                </span>
+                                                <input
+                                                    id="reset-email"
+                                                    type="email"
+                                                    autoComplete="email"
+                                                    autoFocus
+                                                    required
+                                                    value={resetForm.data.email}
+                                                    onChange={(e) => resetForm.setData('email', e.target.value)}
+                                                    className={`${inputClass} pl-11 pr-4`}
+                                                    placeholder="admin@medisync.test"
+                                                />
+                                            </div>
+                                            {resetForm.errors.email && <p className="mt-1 text-xs text-red-500">{resetForm.errors.email}</p>}
+                                        </div>
+
+                                        <button type="submit" disabled={resetForm.processing} className={primaryButtonClass}>
+                                            {resetForm.processing ? 'Sending...' : 'Send reset link'}
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => switchMode('signin')}
+                                            className="w-full py-2 text-center text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
+                                        >
+                                            <i className="fas fa-arrow-left mr-1.5" /> Back to sign in
+                                        </button>
+                                    </form>
+                                )}
+                            </>
+                        )}
                     </div>
 
                 </div>

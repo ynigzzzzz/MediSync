@@ -65,7 +65,10 @@ export default function Index({ users, stats, filters }) {
     }
 
     function confirmDelete() {
-        router.delete(`/user-management/${pendingDelete.user_id}`, { onFinish: () => setPendingDelete(null) });
+        router.delete(`/user-management/${pendingDelete.user_id}`, { 
+            onSuccess: () => setMessage('User deleted successfully.'),
+            onFinish: () => setPendingDelete(null) 
+        });
     }
 
     function toggleStatus(u) {
@@ -77,36 +80,54 @@ export default function Index({ users, stats, filters }) {
         <AuthenticatedLayout>
             <Head title="User Management" />
 
-            <div className="mb-5">
-                <h1 className="text-2xl font-semibold tracking-tight text-gray-900">User Management</h1>
-                <p className="text-[13px] text-gray-500">Manage system users, roles, and access permissions.</p>
+            {/* Header with Add Button (Matches Suppliers) */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5">
+                <div>
+                    <h1 className="text-2xl font-semibold tracking-tight text-gray-900">User Management</h1>
+                    <p className="text-[13px] text-gray-500">Manage system users, roles, and access permissions.</p>
+                </div>
+                <button onClick={openAdd} className="rounded-full px-5 py-2 text-[13px] font-semibold bg-gray-900 text-white hover:bg-black transition-colors shadow-sm whitespace-nowrap">
+                    + Add User
+                </button>
             </div>
 
+            {/* Success / Error Banners */}
             {message && <div className="mb-4 bg-green-50 text-green-700 border border-green-200 rounded-xl p-3 text-[13px] font-medium">{message}</div>}
             {errors?.message && <div className="mb-4 bg-red-50 text-red-700 border border-red-200 rounded-xl p-3 text-[13px] font-medium">{errors.message}</div>}
 
+            {/* Stat Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                 <StatCard icon="fa-user-check" label="Active Users" value={stats.activeUsers} tone="success" />
                 <StatCard icon="fa-user-xmark" label="Inactive Users" value={stats.inactiveUsers} tone="warning" />
                 <StatCard icon="fa-user-shield" label="Admins" value={stats.adminCount} tone="rose" />
             </div>
 
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-                <form onSubmit={applyFilters} className="flex flex-col sm:flex-row gap-2 flex-1 w-full">
-                    <input className={`${inputCls} flex-1`} placeholder="Search name or email..." value={search} onChange={(e) => setSearch(e.target.value)} />
-                    <select className={`${inputCls} sm:w-40`} value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
-                        <option value="all">All Roles</option>
-                        <option value="admin">Admin</option>
-                        <option value="pharmacist">Pharmacist</option>
-                        <option value="assistant">Assistant</option>
-                    </select>
-                    <button type="submit" className="rounded-full bg-gray-900 text-white text-[13px] font-semibold px-5 py-2 hover:bg-black transition-colors shadow-sm">Search</button>
-                </form>
-                <button onClick={openAdd} className="rounded-full px-5 py-2 text-[13px] font-semibold bg-[#FF4D79] text-white hover:bg-[#E63E66] transition-colors shadow-sm whitespace-nowrap">
-                    + Add User
-                </button>
-            </div>
+            {/* Filter Bar (Matches Suppliers layout) */}
+            <form onSubmit={applyFilters} className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-white rounded-[16px] shadow-sm border border-gray-100 p-4 mb-4">
+                <input 
+                    className={`${inputCls} md:col-span-3`} 
+                    placeholder="Search name or email..." 
+                    value={search} 
+                    onChange={(e) => setSearch(e.target.value)} 
+                />
+                <select 
+                    className={inputCls} 
+                    value={roleFilter} 
+                    onChange={(e) => setRoleFilter(e.target.value)}
+                >
+                    <option value="all">All Roles</option>
+                    <option value="admin">Admin</option>
+                    <option value="pharmacist">Pharmacist</option>
+                    <option value="assistant">Assistant</option>
+                </select>
+                <div className="md:col-span-4 flex justify-end">
+                    <button type="submit" className="rounded-full bg-gray-900 text-white text-[13px] font-semibold px-5 py-2 hover:bg-black transition-colors shadow-sm">
+                        Apply Filters
+                    </button>
+                </div>
+            </form>
 
+            {/* Add / Edit Form */}
             {showForm && (
                 <div className="bg-white rounded-[16px] shadow-sm border border-gray-100 p-5 mb-4 space-y-4">
                     <h3 className="font-semibold text-gray-900 text-[15px]">{editingId ? 'Edit User' : 'Add User'}</h3>
@@ -157,6 +178,7 @@ export default function Index({ users, stats, filters }) {
                 </div>
             )}
 
+            {/* Table */}
             <div className="bg-white rounded-[16px] shadow-sm border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto w-full">
                     <table className="w-full min-w-[800px] text-left text-[13px]">

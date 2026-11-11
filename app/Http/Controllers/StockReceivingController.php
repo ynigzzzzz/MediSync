@@ -27,10 +27,11 @@ class StockReceivingController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        // Format batches exactly how the ExpiryWarning component expects it
+        // Strictly Expiring (Not expired yet, but within 30 days)
         $expiringBatches = StockIn::with('medicine:medicine_id,generic_name,brand_name')
             ->where('remaining_quantity', '>', 0)
-            ->whereDate('expiry_date', '<=', now()->addDays(30))
+            ->whereDate('expiry_date', '>=', now()->toDateString())
+            ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
             ->orderBy('expiry_date')
             ->get()
             ->map(fn ($b) => [
@@ -47,7 +48,7 @@ class StockReceivingController extends Controller
             'medicines' => Medicine::select('medicine_id', 'generic_name', 'brand_name', 'current_stock', 'price', 'dosage')->orderBy('generic_name')->get(),
             'suppliers' => Supplier::where('status', 'active')->orderBy('name')->get(['supplier_id', 'name']),
             'records' => $records,
-            'expiringBatches' => $expiringBatches, // <-- Now properly formatted
+            'expiringBatches' => $expiringBatches,
             'alerts' => $this->getAlerts(),
         ]);
     }
@@ -56,7 +57,6 @@ class StockReceivingController extends Controller
     {
         $data = $request->validated();
 
-        // Handle the supplier relationship string sync
         if (! empty($data['supplier_id'])) {
             $supplier = Supplier::find($data['supplier_id']);
             if ($supplier) {
@@ -64,7 +64,6 @@ class StockReceivingController extends Controller
             }
         }
 
-        // Call the Fat Model method
         $batch = StockIn::receiveBatch($data, $request->user()->user_id);
 
         AuditLog::record(
@@ -114,19 +113,22 @@ class StockReceivingController extends Controller
 
     private function getAlerts(): array
     {
-        $expiring = StockIn::where('remaining_quantity', '>', 0)
+        // Expiring: >= today AND <= today + 30
+        $expiringSoonCount = StockIn::where('remaining_quantity', '>', 0)
+            ->whereDate('expiry_date', '>=', now()->toDateString())
             ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
-            ->get();
+            ->count();
 
-        $expired = StockIn::where('remaining_quantity', '>', 0)
+        // Expired: < today
+        $expiredCount = StockIn::where('remaining_quantity', '>', 0)
             ->whereDate('expiry_date', '<', now()->toDateString())
-            ->get();
+            ->count();
 
         return [
             'lowStock' => Medicine::whereBetween('current_stock', [1, 49])->count(),
             'outOfStock' => Medicine::where('current_stock', 0)->count(),
-            'expiringSoon' => $expiring->count(),
-            'hasExpired' => $expired->isNotEmpty(),
+            'expiringSoon' => $expiringSoonCount,
+            'expiredCount' => $expiredCount,
         ];
     }
 }
