@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\DisposeStockBatchesRequest;
 use App\Http\Requests\StoreDispenseRequest;
 use App\Models\AuditLog;
 use App\Models\Medicine;
@@ -24,20 +25,60 @@ class StockDispensingController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        // Strictly Expired (< today)
+        $today = now()->toDateString();
+
         $expiredBatches = StockIn::with('medicine:medicine_id,generic_name,brand_name')
-            ->where('expiry_date', '<', now()->toDateString())
+            ->where('expiry_date', '<', $today)
             ->where('remaining_quantity', '>', 0)
             ->orderBy('expiry_date')
             ->get();
 
-        // Strictly Expiring (>= today AND <= today + 30)
         $expiringBatches = StockIn::with('medicine:medicine_id,generic_name,brand_name')
-            ->where('expiry_date', '>=', now()->toDateString())
+            ->where('expiry_date', '>=', $today)
             ->where('expiry_date', '<=', now()->addDays(30)->toDateString())
             ->where('remaining_quantity', '>', 0)
             ->orderBy('expiry_date')
             ->get();
+
+        $alerts = [];
+
+        $lowStockCount = Medicine::whereBetween('current_stock', [1, 49])->count();
+        if ($lowStockCount > 0) {
+            $alerts[] = [
+                'type' => 'warning',
+                'icon' => 'fa-triangle-exclamation',
+                'message' => "{$lowStockCount} medicine(s) low on stock",
+                'link' => '/medicine-list?filter=lowstock',
+            ];
+        }
+
+        $outOfStockCount = Medicine::where('current_stock', 0)->count();
+        if ($outOfStockCount > 0) {
+            $alerts[] = [
+                'type' => 'danger',
+                'icon' => 'fa-circle-xmark',
+                'message' => "{$outOfStockCount} medicine(s) out of stock",
+                'link' => '/medicine-list?filter=outofstock',
+            ];
+        }
+
+        if ($expiringBatches->isNotEmpty()) {
+            $alerts[] = [
+                'type' => 'warning',
+                'icon' => 'fa-hourglass-half',
+                'message' => "{$expiringBatches->count()} batch(es) expiring within 30 days",
+                'link' => '/medicine-list?filter=expiring',
+            ];
+        }
+
+        if ($expiredBatches->isNotEmpty()) {
+            $alerts[] = [
+                'type' => 'danger',
+                'icon' => 'fa-ban',
+                'message' => "{$expiredBatches->count()} expired batch(es) still in stock",
+                'link' => '/medicine-list?filter=expiring',
+            ];
+        }
 
         return Inertia::render('StockDispensing/Index', [
             'medicines' => Medicine::where('current_stock', '>', 0)
@@ -48,11 +89,7 @@ class StockDispensingController extends Controller
             'expiringBatches' => $expiringBatches,
             'hasExpired' => $expiredBatches->isNotEmpty(),
             'hasExpiringSoon' => $expiringBatches->isNotEmpty(),
-            'alerts' => [
-                'lowStock' => Medicine::whereBetween('current_stock', [1, 49])->count(),
-                'outOfStock' => Medicine::where('current_stock', 0)->count(),
-                'expiringSoon' => $expiringBatches->count(),
-            ],
+            'alerts' => $alerts,
         ]);
     }
 
@@ -77,7 +114,7 @@ class StockDispensingController extends Controller
                         $item['dosage'] ?? null,
                         $validated['patient_name'] ?? 'Walk-in',
                         $validated['prescription_no'] ?? 'N/A',
-                        $userId
+                        $userId,
                     );
 
                     $totalValue += $itemTotal;
@@ -87,7 +124,7 @@ class StockDispensingController extends Controller
                 AuditLog::record(
                     $userId,
                     'STOCK_OUT',
-                    'Dispensed '.implode(', ', $dispensedItems).' to patient: '.($validated['patient_name'] ?? 'Walk-in')
+                    'Dispensed '.implode(', ', $dispensedItems).' to patient: '.($validated['patient_name'] ?? 'Walk-in'),
                 );
             });
         } catch (\Exception $e) {
@@ -101,35 +138,35 @@ class StockDispensingController extends Controller
     {
         abort_unless($request->user()->role === 'admin', 403, 'Only administrators can delete records.');
 
-        DB::transaction(function () use ($request, $stockOut) {
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:5', 'max:500'],
+        ]);
+
+        DB::transaction(function () use ($request, $stockOut, $validated) {
             if ($stockOut->stock_in_id) {
-                StockIn::where('stock_in_id', $stockOut->stock_in_id)->increment('remaining_quantity', $stockOut->quantity);
+                StockIn::where('stock_in_id', $stockOut->stock_in_id)
+                    ->increment('remaining_quantity', $stockOut->quantity);
             }
-            Medicine::where('medicine_id', $stockOut->medicine_id)->increment('current_stock', $stockOut->quantity);
-            AuditLog::record($request->user()->user_id, 'DELETE_STOCK_OUT', "Deleted stock-out record ID {$stockOut->stock_out_id}");
+            Medicine::where('medicine_id', $stockOut->medicine_id)
+                ->increment('current_stock', $stockOut->quantity);
+
+            AuditLog::record(
+                $request->user()->user_id,
+                'DELETE_STOCK_OUT',
+                "Deleted stock-out record ID {$stockOut->stock_out_id}",
+                null,
+                $validated['reason'],
+            );
+
             $stockOut->delete();
         });
 
         return back()->with('success', 'Record deleted and stock restored.');
     }
 
-    public function disposeBatches(Request $request)
+    public function disposeBatches(DisposeStockBatchesRequest $request)
     {
-        abort_unless(in_array($request->user()->role, ['admin', 'pharmacist']), 403);
-        $data = $request->validate(['batch_ids' => ['required', 'array']]);
-
-        DB::transaction(function () use ($data, $request) {
-            foreach ($data['batch_ids'] as $stockInId) {
-                $batch = StockIn::where('stock_in_id', (int) $stockInId)->lockForUpdate()->first();
-                if (! $batch) {
-                    continue;
-                }
-                Medicine::where('medicine_id', $batch->medicine_id)->decrement('current_stock', $batch->remaining_quantity);
-                StockOut::where('stock_in_id', $batch->stock_in_id)->delete();
-                AuditLog::record($request->user()->user_id, 'DISPOSE_BATCH', "Disposed batch {$batch->batch_no}", $batch->medicine_id);
-                $batch->delete();
-            }
-        });
+        StockIn::disposeBatches($request->validated()['batch_ids'], $request->user()->user_id);
 
         return back()->with('success', 'Selected batches disposed.');
     }

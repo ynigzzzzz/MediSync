@@ -2,13 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AuditLog;
-use App\Models\Medicine;
+use App\Http\Requests\DisposeStockBatchesRequest;
 use App\Models\StockIn;
 use App\Models\StockOut;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class TransactionHistoryController extends Controller
@@ -29,7 +27,6 @@ class TransactionHistoryController extends Controller
             'stockInTotal' => (float) StockIn::whereRaw("DATE_TRUNC('month', recorded_at) = DATE_TRUNC('month', CURRENT_DATE)")->sum('quantity'),
             'stockOutTotal' => (float) StockOut::whereRaw("DATE_TRUNC('month', dispensed_at) = DATE_TRUNC('month', CURRENT_DATE)")->sum('quantity'),
             'users' => User::where('role', '!=', 'admin')->orderBy('full_name')->pluck('full_name'),
-            'allExpiringBatches' => StockIn::whereRaw("expiry_date <= CURRENT_DATE + INTERVAL '30 days'")->orderBy('expiry_date')->get(),
             'filters' => $filters,
         ]);
     }
@@ -57,31 +54,9 @@ class TransactionHistoryController extends Controller
         }, $filename, ['Content-Type' => 'text/csv; charset=utf-8']);
     }
 
-    public function disposeBatches(Request $request)
+    public function disposeBatches(DisposeStockBatchesRequest $request)
     {
-        abort_unless(in_array($request->user()->role, ['admin', 'pharmacist']), 403);
-
-        $batchIds = $request->input('batch_ids', []);
-        if (empty($batchIds)) {
-            return back()->withErrors(['batch_ids' => 'No batches selected.']);
-        }
-
-        try {
-            DB::transaction(function () use ($batchIds, $request) {
-                foreach ($batchIds as $sid) {
-                    $batch = StockIn::where('stock_in_id', (int) $sid)->lockForUpdate()->first();
-                    if (! $batch) {
-                        continue;
-                    }
-                    Medicine::where('medicine_id', $batch->medicine_id)->decrement('current_stock', $batch->remaining_quantity);
-                    StockOut::where('stock_in_id', $batch->stock_in_id)->delete();
-                    $batch->delete();
-                    AuditLog::record($request->user()->user_id, 'DISPOSE_BATCH', "Disposed batch {$batch->batch_no}", $batch->medicine_id);
-                }
-            });
-        } catch (\Exception $e) {
-            return back()->withErrors(['dispose' => $e->getMessage()]);
-        }
+        StockIn::disposeBatches($request->validated()['batch_ids'], $request->user()->user_id);
 
         return back()->with('success', 'Selected batches disposed.');
     }

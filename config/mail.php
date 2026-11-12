@@ -111,8 +111,10 @@ return [
     */
 
     'from' => [
+        'support_inbox' => env('SUPPORT_INBOX_EMAIL'),
         'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
+
     ],
 
 ];

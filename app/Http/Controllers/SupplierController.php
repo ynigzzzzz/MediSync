@@ -42,7 +42,7 @@ class SupplierController extends Controller
             $request->user()->user_id,
             'CREATE_SUPPLIER',
             "Added supplier: {$supplier->name}",
-            $supplier->supplier_id
+            $supplier->supplier_id,
         );
 
         return back()->with('success', "Supplier \"{$supplier->name}\" has been added.");
@@ -57,7 +57,7 @@ class SupplierController extends Controller
             $request->user()->user_id,
             'UPDATE_SUPPLIER',
             "Updated supplier ID {$supplier->supplier_id}: {$supplier->name}",
-            $supplier->supplier_id
+            $supplier->supplier_id,
         );
 
         return back()->with('success', 'Supplier updated successfully.');
@@ -73,7 +73,7 @@ class SupplierController extends Controller
         AuditLog::record(
             $request->user()->user_id,
             'DELETE_SUPPLIER',
-            "Deleted supplier: {$name}"
+            "Deleted supplier: {$name}",
         );
 
         return back()->with('success', 'Supplier deleted successfully.');

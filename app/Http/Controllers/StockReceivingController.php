@@ -2,14 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\DisposeStockBatchesRequest;
 use App\Http\Requests\StoreStockInRequest;
 use App\Models\AuditLog;
 use App\Models\Medicine;
 use App\Models\StockIn;
-use App\Models\StockOut;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class StockReceivingController extends Controller
@@ -27,7 +26,6 @@ class StockReceivingController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        // Strictly Expiring (Not expired yet, but within 30 days)
         $expiringBatches = StockIn::with('medicine:medicine_id,generic_name,brand_name')
             ->where('remaining_quantity', '>', 0)
             ->whereDate('expiry_date', '>=', now()->toDateString())
@@ -41,7 +39,7 @@ class StockReceivingController extends Controller
                 'batch_no' => $b->batch_no,
                 'expiry_date' => $b->expiry_date,
                 'remaining_quantity' => $b->remaining_quantity,
-                'days_left' => now()->diffInDays($b->expiry_date, false),
+                'days_left' => (int) now()->diffInDays($b->expiry_date, false),
             ]);
 
         return Inertia::render('StockReceiving/Index', [
@@ -57,20 +55,20 @@ class StockReceivingController extends Controller
     {
         $data = $request->validated();
 
-        if (! empty($data['supplier_id'])) {
-            $supplier = Supplier::find($data['supplier_id']);
-            if ($supplier) {
-                $data['supplier'] = $supplier->name;
-            }
+        $supplier = Supplier::find($data['supplier_id']);
+        if (! $supplier || $supplier->status !== 'active') {
+            return back()->withErrors(['supplier_id' => 'The selected supplier is not active.']);
         }
+
+        $data['supplier'] = $supplier->name;
 
         $batch = StockIn::receiveBatch($data, $request->user()->user_id);
 
         AuditLog::record(
             $request->user()->user_id,
             'STOCK_IN',
-            "Added {$data['quantity']} units of {$batch->medicine->generic_name} (supplier: ".($data['supplier'] ?? '—').')',
-            $data['medicine_id']
+            "Added {$data['quantity']} units of {$batch->medicine->generic_name} (supplier: {$supplier->name})",
+            $data['medicine_id'],
         );
 
         return back()->with('success', 'Stock-In successful!');
@@ -80,55 +78,89 @@ class StockReceivingController extends Controller
     {
         abort_unless($request->user()->role === 'admin', 403, 'Only administrators can delete records.');
 
-        DB::transaction(function () use ($stockIn, $request) {
-            Medicine::where('medicine_id', $stockIn->medicine_id)->decrement('current_stock', $stockIn->quantity);
-            AuditLog::record($request->user()->user_id, 'DELETE_STOCK_IN', "Deleted stock-in record ID {$stockIn->stock_in_id}");
-            $stockIn->delete();
-        });
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:5', 'max:500'],
+        ]);
+
+        if ($stockIn->remaining_quantity < $stockIn->quantity) {
+            return back()->withErrors([
+                'delete' => 'This batch has already been partially dispensed and cannot be deleted. Use Dispose instead.',
+            ]);
+        }
+
+        Medicine::where('medicine_id', $stockIn->medicine_id)
+            ->decrement('current_stock', $stockIn->remaining_quantity);
+
+        AuditLog::record(
+            $request->user()->user_id,
+            'DELETE_STOCK_IN',
+            "Deleted stock-in record ID {$stockIn->stock_in_id}",
+            null,
+            $validated['reason'],
+        );
+
+        $stockIn->delete();
 
         return back()->with('success', 'Record deleted.');
     }
 
-    public function disposeBatches(Request $request)
+    public function disposeBatches(DisposeStockBatchesRequest $request)
     {
-        abort_unless(in_array($request->user()->role, ['admin', 'pharmacist']), 403);
-
-        $data = $request->validate([
-            'batch_ids' => ['required', 'array', 'min:1'],
-            'batch_ids.*' => ['integer', 'exists:stock_in,stock_in_id'],
-        ]);
-
-        DB::transaction(function () use ($data, $request) {
-            $batches = StockIn::whereIn('stock_in_id', $data['batch_ids'])->lockForUpdate()->get();
-            foreach ($batches as $batch) {
-                Medicine::where('medicine_id', $batch->medicine_id)->decrement('current_stock', $batch->remaining_quantity);
-                StockOut::where('stock_in_id', $batch->stock_in_id)->delete();
-                AuditLog::record($request->user()->user_id, 'DISPOSE_BATCH', "Disposed batch {$batch->batch_no}", $batch->medicine_id);
-                $batch->delete();
-            }
-        });
+        StockIn::disposeBatches($request->validated()['batch_ids'], $request->user()->user_id);
 
         return back()->with('success', 'Selected batches disposed.');
     }
 
     private function getAlerts(): array
     {
-        // Expiring: >= today AND <= today + 30
+        $alerts = [];
+        $today = now()->toDateString();
+
+        $lowStockCount = Medicine::whereBetween('current_stock', [1, 49])->count();
+        if ($lowStockCount > 0) {
+            $alerts[] = [
+                'type' => 'warning',
+                'icon' => 'fa-triangle-exclamation',
+                'message' => "{$lowStockCount} medicine(s) low on stock",
+                'link' => '/medicine-list?filter=lowstock',
+            ];
+        }
+
+        $outOfStockCount = Medicine::where('current_stock', 0)->count();
+        if ($outOfStockCount > 0) {
+            $alerts[] = [
+                'type' => 'danger',
+                'icon' => 'fa-circle-xmark',
+                'message' => "{$outOfStockCount} medicine(s) out of stock",
+                'link' => '/medicine-list?filter=outofstock',
+            ];
+        }
+
         $expiringSoonCount = StockIn::where('remaining_quantity', '>', 0)
-            ->whereDate('expiry_date', '>=', now()->toDateString())
+            ->whereDate('expiry_date', '>=', $today)
             ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
             ->count();
+        if ($expiringSoonCount > 0) {
+            $alerts[] = [
+                'type' => 'warning',
+                'icon' => 'fa-hourglass-half',
+                'message' => "{$expiringSoonCount} batch(es) expiring within 30 days",
+                'link' => '/medicine-list?filter=expiring',
+            ];
+        }
 
-        // Expired: < today
         $expiredCount = StockIn::where('remaining_quantity', '>', 0)
-            ->whereDate('expiry_date', '<', now()->toDateString())
+            ->whereDate('expiry_date', '<', $today)
             ->count();
+        if ($expiredCount > 0) {
+            $alerts[] = [
+                'type' => 'danger',
+                'icon' => 'fa-ban',
+                'message' => "{$expiredCount} expired batch(es) still in stock",
+                'link' => '/medicine-list?filter=expiring',
+            ];
+        }
 
-        return [
-            'lowStock' => Medicine::whereBetween('current_stock', [1, 49])->count(),
-            'outOfStock' => Medicine::where('current_stock', 0)->count(),
-            'expiringSoon' => $expiringSoonCount,
-            'expiredCount' => $expiredCount,
-        ];
+        return $alerts;
     }
 }

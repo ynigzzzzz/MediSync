@@ -19,9 +19,12 @@ class StoreStockInRequest extends FormRequest
             'quantity' => ['required', 'integer', 'min:1'],
             'batch_no' => ['required', 'string', 'max:50'],
             'expiry_date' => ['required', 'date', 'after:today'],
-            'supplier_id' => ['nullable', 'integer', Rule::exists('suppliers', 'supplier_id')],
-            'supplier' => ['required_without:supplier_id', 'nullable', 'string', 'max:100'],
-            'delivery_date' => ['required', 'date', 'before_or_equal:expiry_date'], // <-- ADDED RULE
+            'supplier_id' => [
+                'required',
+                'integer',
+                Rule::exists('suppliers', 'supplier_id')->where('status', 'active'),
+            ],
+            'delivery_date' => ['required', 'date', 'before_or_equal:expiry_date'],
             'cost_price' => ['required', 'numeric', 'min:0.01'],
             'sell_price' => ['nullable', 'numeric', 'min:0'],
             'dosage' => ['nullable', 'string', 'max:50'],
@@ -31,7 +34,8 @@ class StoreStockInRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'supplier.required_without' => 'Please pick a supplier or type one in.',
+            'supplier_id.required' => 'Please select a supplier from the Suppliers module.',
+            'supplier_id.exists' => 'The selected supplier is not active or does not exist.',
             'delivery_date.before_or_equal' => 'The delivery date cannot be after the expiry date.',
         ];
     }

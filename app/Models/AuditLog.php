@@ -16,6 +16,7 @@ class AuditLog extends Model
         'user_id',
         'action_type',
         'description',
+        'reason',
         'reference_id',
         'ip_address',
     ];
@@ -29,19 +30,18 @@ class AuditLog extends Model
         return $this->belongsTo(User::class, 'user_id', 'user_id');
     }
 
-    /**
-     * record($userId, $actionType, $description, $referenceId = null)
-     *
-     * $userId is explicit rather than pulled from auth()->id() — some
-     * disposal/cleanup actions may run without a bound request user, and
-     * every existing call site already passes it explicitly.
-     */
-    public static function record($userId, string $actionType, string $description, ?int $referenceId = null): self
-    {
+    public static function record(
+        $userId,
+        string $actionType,
+        string $description,
+        ?int $referenceId = null,
+        ?string $reason = null,
+    ): self {
         return self::create([
             'user_id' => $userId,
             'action_type' => $actionType,
             'description' => $description,
+            'reason' => $reason,
             'reference_id' => $referenceId,
             'ip_address' => request()->ip(),
         ]);

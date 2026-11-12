@@ -98,6 +98,28 @@
                 @endforeach
             </tbody>
         </table>
+    @elseif ($tab === 'deletions')
+        <h2>Deletion History</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th><th>Type</th><th>Description</th><th>Reason</th><th>Deleted By</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse ($deletions as $d)
+                    <tr>
+                        <td>{{ \Illuminate\Support\Carbon::parse($d->created_at)->format('M j, Y g:i A') }}</td>
+                        <td>{{ $d->action_type === 'DELETE_STOCK_IN' ? 'Stock-In' : 'Stock-Out' }}</td>
+                        <td>{{ $d->description }}</td>
+                        <td>{{ $d->reason ?? '—' }}</td>
+                        <td>{{ $d->user_name ?? 'System' }}</td>
+                    </tr>
+                @empty
+                    <tr><td colspan="5">No deletions recorded in this period.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
     @endif
 </body>
 </html>

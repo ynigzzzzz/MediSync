@@ -16,7 +16,7 @@ class StockIn extends Model
     protected $fillable = [
         'medicine_id', 'quantity', 'batch_no', 'expiry_date', 'supplier',
         'supplier_id', 'received_by', 'delivery_date', 'invoice_no',
-        'cost_price', 'selling_price', 'remaining_quantity',
+        'cost_price', 'selling_price', 'remaining_quantity', 'recorded_at',
     ];
 
     protected $casts = [
@@ -56,10 +56,8 @@ class StockIn extends Model
         return DB::transaction(function () use ($data, $userId) {
             $medicine = Medicine::where('medicine_id', $data['medicine_id'])->lockForUpdate()->firstOrFail();
 
-            // 1. Update stock
             $medicine->increment('current_stock', $data['quantity']);
 
-            // 2. Update price and dosage if provided
             $updates = [];
             if (($data['sell_price'] ?? 0) > 0 && (float) $medicine->price !== (float) $data['sell_price']) {
                 $updates['price'] = $data['sell_price'];
@@ -71,7 +69,6 @@ class StockIn extends Model
                 $medicine->update($updates);
             }
 
-            // 3. Create the stock-in record
             return self::create([
                 'medicine_id' => $data['medicine_id'],
                 'quantity' => $data['quantity'],
@@ -86,6 +83,34 @@ class StockIn extends Model
                 'selling_price' => $data['sell_price'] ?? 0,
                 'remaining_quantity' => $data['quantity'],
             ]);
+        });
+    }
+
+    /**
+     * Dispose one or more batches (expired or otherwise) in a single transaction.
+     * Shared by Medicine Catalog, Stock Receiving, Stock Dispensing and
+     * Transaction History so the behaviour stays identical everywhere.
+     */
+    public static function disposeBatches(array $batchIds, int $userId): void
+    {
+        DB::transaction(function () use ($batchIds, $userId) {
+            $batches = self::whereIn('stock_in_id', $batchIds)->lockForUpdate()->get();
+
+            foreach ($batches as $batch) {
+                Medicine::where('medicine_id', $batch->medicine_id)
+                    ->decrement('current_stock', $batch->remaining_quantity);
+
+                StockOut::where('stock_in_id', $batch->stock_in_id)->delete();
+
+                AuditLog::record(
+                    $userId,
+                    'DISPOSE_BATCH',
+                    "Disposed batch {$batch->batch_no}, removed {$batch->remaining_quantity} units",
+                    $batch->medicine_id,
+                );
+
+                $batch->delete();
+            }
         });
     }
 }

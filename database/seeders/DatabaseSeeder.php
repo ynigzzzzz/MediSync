@@ -27,7 +27,7 @@ class DatabaseSeeder extends Seeder
                 'password_hash' => Hash::make('password123'),
                 'role' => 'admin',
                 'status' => 'active',
-            ]
+            ],
         );
 
         // 2. TRUNCATE TABLES FIRST (This removes all foreign key references)

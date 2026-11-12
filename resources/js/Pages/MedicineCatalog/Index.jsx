@@ -1,98 +1,44 @@
 import { useState } from 'react';
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import StatCard from '@/Components/StatCard';
 import Badge from '@/Components/Badge';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import Pagination from '@/Components/Pagination';
-import { SearchableSelect } from '@/Components/ui/searchable-select';
+import MedicineFormModal from '@/Components/MedicineFormModal';
+import { usePage } from '@inertiajs/react';
 
-const emptyForm = { generic_name: '', brand_name: '', type: '', category: '', dosage: '', price: '' };
-const inputCls = "w-full rounded-xl border border-transparent bg-[#F2F2F7] px-3 py-2 text-[14px] text-gray-900 placeholder-gray-400 focus:border-gray-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-100 transition-all";
+export default function Index({ medicines, stats, activeFilter, expiringBatches, attention = [] }) {
+    const { auth } = usePage().props;
+    const canEdit = auth.user.role !== 'assistant';
 
-const DEFAULT_TYPES = ['Tablet', 'Capsule', 'Syrup', 'Suspension', 'Injection', 'Ointment', 'Drops'];
-const DEFAULT_CATEGORIES = ['Allergies', 'Stomach Pain', 'Headache', 'Fever', 'Cough', 'Antibiotic', 'Vitamins'];
-
-export default function Index({ medicines, stats, activeFilter, expiringBatches }) {
-    const { auth, errors } = usePage().props;
-    const role = auth.user.role;
-    const canEdit = role !== 'assistant';
-
-    const [showForm, setShowForm] = useState(false);
-    const [editingId, setEditingId] = useState(null);
-    const [form, setForm] = useState(emptyForm);
+    const [modalOpen, setModalOpen] = useState(false);
+    const [editingMedicine, setEditingMedicine] = useState(null);
     const [pendingDelete, setPendingDelete] = useState(null);
     const [selectedBatches, setSelectedBatches] = useState([]);
-    const [localError, setLocalError] = useState('');
-    
-    // Success Alert State
-    const [showAlert, setShowAlert] = useState(false);
-    const [alertMessage, setAlertMessage] = useState('');
-
-    const triggerSuccess = (msg) => {
-        setAlertMessage(msg);
-        setShowAlert(true);
-        setTimeout(() => {
-            document.getElementById('success-alert')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 100);
-        setTimeout(() => setShowAlert(false), 4000);
-    };
 
     const rows = medicines?.data ?? [];
     const batches = expiringBatches?.data ?? [];
-    
-    const allCategories = [...new Set([...DEFAULT_CATEGORIES, ...(stats?.categories || [])])];
-    const allTypes = [...new Set([...DEFAULT_TYPES, ...(stats?.types || [])])];
+    const isExpiringView = activeFilter === 'expiring';
 
     function applyFilter(filter) {
         router.get('/medicine-list', { filter }, { preserveScroll: true, preserveState: true });
     }
 
-    function openAdd() { 
-        setForm(emptyForm); 
-        setEditingId(null); 
-        setLocalError('');
-        setShowForm(true); 
+    function openAdd() {
+        setEditingMedicine(null);
+        setModalOpen(true);
     }
-    
+
     function openEdit(m) {
-        setForm({ 
-            generic_name: m.generic_name, 
-            brand_name: m.brand_name, 
-            type: m.type, 
-            category: m.category, 
-            dosage: m.dosage, 
-            price: m.price 
-        });
-        setEditingId(m.medicine_id);
-        setLocalError('');
-        setShowForm(true);
+        setEditingMedicine(m);
+        setModalOpen(true);
     }
 
-    function submitForm(e) {
-        e.preventDefault();
-        
-        if (!form.type || !form.category) {
-            setLocalError('Please select a Type and Category.');
-            return;
-        }
-        setLocalError('');
-
-        const url = editingId ? `/medicine-list/${editingId}` : '/medicine-list';
-        const method = editingId ? 'put' : 'post';
-        
-        router[method](url, form, {
-            onSuccess: () => { 
-                setShowForm(false); 
-                triggerSuccess(editingId ? 'Medicine updated successfully.' : 'Medicine added successfully.');
-            },
-            preserveScroll: true,
-        });
-    }
-
-    function confirmDelete() {
+    function confirmDelete(reason) {
         router.delete(`/medicine-list/${pendingDelete.medicine_id}`, {
-            onSuccess: () => triggerSuccess('Medicine deleted successfully.'),
+            data: { reason },
+            preserveScroll: true,
             onFinish: () => setPendingDelete(null),
         });
     }
@@ -104,15 +50,12 @@ export default function Index({ medicines, stats, activeFilter, expiringBatches 
     function confirmDispose() {
         if (selectedBatches.length === 0) return;
         router.post('/medicine-list/dispose', { batch_ids: selectedBatches }, {
-            onSuccess: () => { 
-                setSelectedBatches([]); 
-                triggerSuccess('Selected batches disposed successfully.');
-                applyFilter('all'); 
-            }
+            onSuccess: () => {
+                setSelectedBatches([]);
+                applyFilter('all');
+            },
         });
     }
-
-    const isExpiringView = activeFilter === 'expiring';
 
     return (
         <AuthenticatedLayout>
@@ -137,56 +80,19 @@ export default function Index({ medicines, stats, activeFilter, expiringBatches 
                 <StatCard label="Expiring (30 Days)" value={stats.expiring} icon="fa-hourglass-half" tone="warning" onClick={() => applyFilter('expiring')} active={activeFilter === 'expiring'} />
             </div>
 
-            {/* Success Card (Moved below stat cards) */}
-            {showAlert && (
-                <div id="success-alert" className="mb-4 bg-green-50 border border-green-200 text-green-800 p-4 rounded-[16px] text-[13px] shadow-sm animate-in fade-in slide-in-from-top-2">
-                    <h4 className="font-semibold mb-1"><i className="fas fa-check-circle mr-2" />Success</h4>
-                    <p>{alertMessage}</p>
-                </div>
-            )}
-
-            {(errors?.generic_name || localError) && (
-                <div className="mb-4 bg-red-50 text-red-700 border border-red-200 rounded-xl p-3 text-[13px] font-medium">
-                    {localError || errors.generic_name}
-                </div>
-            )}
-
-            {showForm && (
-                <div className="bg-white rounded-[16px] shadow-sm border border-gray-100 p-5 mb-4 space-y-4">
-                    <h2 className="font-semibold text-gray-900 text-[15px]">{editingId ? 'Edit Medicine' : 'Add Medicine'}</h2>
-                    <form onSubmit={submitForm} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label className="block text-[12px] font-semibold text-gray-700 mb-1">Generic Name<span className="text-critical-red">*</span></label>
-                                <input className={inputCls} value={form.generic_name} onChange={(e) => setForm({ ...form, generic_name: e.target.value })} required />
-                            </div>
-                            <div>
-                                <label className="block text-[12px] font-semibold text-gray-700 mb-1">Brand Name<span className="text-critical-red">*</span></label>
-                                <input className={inputCls} value={form.brand_name} onChange={(e) => setForm({ ...form, brand_name: e.target.value })} required />
-                            </div>
-                            <div>
-                                <label className="block text-[12px] font-semibold text-gray-700 mb-1">Type<span className="text-critical-red">*</span></label>
-                                <SearchableSelect value={form.type} onChange={(val) => setForm({ ...form, type: val })} options={allTypes} placeholder="Select type..." allowCustom={true} />
-                            </div>
-                            <div>
-                                <label className="block text-[12px] font-semibold text-gray-700 mb-1">Category<span className="text-critical-red">*</span></label>
-                                <SearchableSelect value={form.category} onChange={(val) => setForm({ ...form, category: val })} options={allCategories} placeholder="Select category..." allowCustom={true} />
-                            </div>
-                            <div>
-                                <label className="block text-[12px] font-semibold text-gray-700 mb-1">Dosage<span className="text-critical-red">*</span></label>
-                                <input className={inputCls} value={form.dosage} onChange={(e) => setForm({ ...form, dosage: e.target.value })} required placeholder="e.g. 500mg" />
-                            </div>
-                            <div>
-                                <label className="block text-[12px] font-semibold text-gray-700 mb-1">Selling Price (₱)<span className="text-critical-red">*</span></label>
-                                <input type="number" step="0.01" min="0" className={inputCls} value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
-                            </div>
-                        </div>
-                        {!editingId && <p className="text-[12px] text-gray-500">New medicines start at 0 stock — add stock via Stock Receiving.</p>}
-                        <div className="flex gap-2 pt-2">
-                            <button type="submit" className="rounded-full bg-gray-900 text-white font-semibold text-[13px] px-5 py-2 hover:bg-black transition-colors shadow-sm">Save</button>
-                            <button type="button" onClick={() => setShowForm(false)} className="rounded-full border border-gray-200 text-gray-700 font-semibold text-[13px] px-5 py-2 hover:bg-gray-50 transition-colors">Cancel</button>
-                        </div>
-                    </form>
+            {attention.length > 0 && (
+                <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-[16px] text-[13px] shadow-sm">
+                    <h4 className="font-semibold mb-1"><i className="fas fa-triangle-exclamation mr-2" />Attention Required</h4>
+                    <ul className="space-y-1">
+                        {attention.map((a, i) => (
+                            <li key={i}>
+                                <button onClick={() => router.get(a.link)} className="text-left hover:underline font-medium">
+                                    <i className={`fas ${a.icon} mr-1.5 opacity-70`} />
+                                    {a.message}
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
                 </div>
             )}
 
@@ -273,6 +179,14 @@ export default function Index({ medicines, stats, activeFilter, expiringBatches 
                 </div>
             )}
 
+            <MedicineFormModal
+                open={modalOpen}
+                onOpenChange={setModalOpen}
+                medicine={editingMedicine}
+                types={stats.types ?? []}
+                categories={stats.categories ?? []}
+            />
+
             <ConfirmDialog
                 open={!!pendingDelete}
                 onOpenChange={(o) => !o && setPendingDelete(null)}
@@ -280,7 +194,8 @@ export default function Index({ medicines, stats, activeFilter, expiringBatches 
                 description={pendingDelete ? `"${pendingDelete.generic_name}" will be permanently removed from the catalog.` : ''}
                 confirmLabel="Delete"
                 tone="danger"
-                onConfirm={confirmDelete}
+                withReason={true}
+                onConfirmWithReason={confirmDelete}
             />
         </AuthenticatedLayout>
     );

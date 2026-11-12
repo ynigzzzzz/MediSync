@@ -59,7 +59,7 @@ class UserManagementController extends Controller
             $request->user()->user_id,
             'CREATE_USER',
             "Added new user: {$user->full_name} ({$user->email}) with role {$user->role}",
-            $user->user_id
+            $user->user_id,
         );
 
         return back()->with('success', "User \"{$user->full_name}\" has been added successfully.");
@@ -88,7 +88,7 @@ class UserManagementController extends Controller
             $request->user()->user_id,
             'UPDATE_USER',
             "Updated user: {$user->full_name} ({$user->email})",
-            $user->user_id
+            $user->user_id,
         );
 
         return back()->with('success', "User \"{$user->full_name}\" has been updated.");
@@ -108,7 +108,7 @@ class UserManagementController extends Controller
             $request->user()->user_id,
             'TOGGLE_USER_STATUS',
             "Set user {$user->full_name} status to {$newStatus}",
-            $user->user_id
+            $user->user_id,
         );
 
         return back()->with('success', "User status changed to {$newStatus}.");
@@ -129,7 +129,7 @@ class UserManagementController extends Controller
         AuditLog::record(
             $request->user()->user_id,
             'DELETE_USER',
-            "Deleted user: {$name} (ID {$id})"
+            "Deleted user: {$name} (ID {$id})",
         );
 
         return back()->with('success', 'User deleted successfully.');

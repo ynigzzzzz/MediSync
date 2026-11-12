@@ -186,7 +186,39 @@ class ReportController extends Controller
                 ];
             });
 
+        // ── Deletions ──
+        $deletionsQuery = DB::table('audit_log')
+            ->leftJoin('users as u', 'audit_log.user_id', '=', 'u.user_id')
+            ->whereIn('audit_log.action_type', ['DELETE_STOCK_IN', 'DELETE_STOCK_OUT'])
+            ->whereDate('audit_log.created_at', '>=', $from)
+            ->whereDate('audit_log.created_at', '<=', $to)
+            ->select(
+                'audit_log.log_id',
+                'audit_log.action_type',
+                'audit_log.description',
+                'audit_log.reason',
+                'audit_log.created_at',
+                'u.full_name as user_name',
+            );
+
+        $deletions = [
+            'total' => (clone $deletionsQuery)->count(),
+            'rows' => (clone $deletionsQuery)
+                ->orderByDesc('audit_log.created_at')
+                ->limit(500)
+                ->get()
+                ->map(fn ($r) => [
+                    'log_id' => $r->log_id,
+                    'type' => $r->action_type === 'DELETE_STOCK_IN' ? 'Stock-In' : 'Stock-Out',
+                    'description' => $r->description,
+                    'reason' => $r->reason ?? '—',
+                    'user_name' => $r->user_name ?? 'System',
+                    'created_at' => $r->created_at,
+                ]),
+        ];
+
         return Inertia::render('Reports/Index', [
+            'deletions' => $deletions,
             'inventory' => $inventory,
             'receiving' => $receiving,
             'dispensing' => $dispensing,
@@ -246,6 +278,15 @@ class ReportController extends Controller
             ->groupBy('m.generic_name', 'm.brand_name')->orderByDesc('units')->get();
         $suppliers = Supplier::orderBy('name')->get(['name', 'contact_person', 'phone', 'email', 'status']);
 
-        return view('reports.print', compact('tab', 'from', 'to', 'medicines', 'receivingRows', 'dispensingRows', 'suppliers'));
+        $deletions = DB::table('audit_log')
+            ->leftJoin('users as u', 'audit_log.user_id', '=', 'u.user_id')
+            ->whereIn('audit_log.action_type', ['DELETE_STOCK_IN', 'DELETE_STOCK_OUT'])
+            ->whereDate('audit_log.created_at', '>=', $from)
+            ->whereDate('audit_log.created_at', '<=', $to)
+            ->select('audit_log.action_type', 'audit_log.description', 'audit_log.reason', 'audit_log.created_at', 'u.full_name as user_name')
+            ->orderByDesc('audit_log.created_at')
+            ->get();
+
+        return view('reports.print', compact('tab', 'from', 'to', 'medicines', 'receivingRows', 'dispensingRows', 'suppliers', 'deletions'));
     }
 }

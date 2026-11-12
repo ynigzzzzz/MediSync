@@ -18,10 +18,13 @@ const ATTENTION_TONES = {
 function computeTrend(trend) {
     if (!trend) return null;
     if (trend.current === 0 && trend.previous === 0) return null;
-    const delta = trend.current - trend.previous;
-    if (delta === 0) return { direction: 'flat', label: '— 0' };
-    if (delta > 0)   return { direction: 'up',   label: `▲ +${delta}` };
-    return { direction: 'down', label: `▼ ${Math.abs(delta)}` };
+    if (trend.previous === 0) {
+        return { direction: 'up', label: `+${trend.current}` };
+    }
+    const pct = Math.round(((trend.current - trend.previous) / trend.previous) * 100);
+    if (pct === 0) return { direction: 'flat', label: '0% vs yesterday' };
+    if (pct > 0) return { direction: 'up', label: `+${pct}% vs yesterday` };
+    return { direction: 'down', label: `${Math.abs(pct)}% vs yesterday` };
 }
 
 export default function Index({ stats, trends, attention, activity, recentActivity }) {
@@ -40,6 +43,8 @@ export default function Index({ stats, trends, attention, activity, recentActivi
     return (
         <AuthenticatedLayout>
             <Head title="Dashboard" />
+
+            <div className="overflow-x-hidden">
 
             <div className="mb-5 flex items-end justify-between">
                 <div>
@@ -68,8 +73,8 @@ export default function Index({ stats, trends, attention, activity, recentActivi
                 <StatCard icon="fa-triangle-exclamation" label="Low Stock" value={stats.lowStockCount} tone="warning" onClick={() => router.get('/medicine-list?filter=lowstock')} />
                 <StatCard icon="fa-circle-xmark" label="Out of Stock" value={stats.outOfStockCount} tone="danger" onClick={() => router.get('/medicine-list?filter=outofstock')} />
                 <StatCard icon="fa-hourglass-half" label="Expiring" value={stats.expiringSoonCount} tone="warning" onClick={() => router.get('/medicine-list?filter=expiring')} />
-                <StatCard icon="fa-arrow-up" label="Dispensed" value={stats.dispensedToday} trend={dispensedTrend} />
-                <StatCard icon="fa-arrow-down" label="Received" value={stats.receivedToday} trend={receivedTrend} />
+                <StatCard icon="fa-pills" label="Dispensed" value={stats.dispensedToday} trend={dispensedTrend} />
+                <StatCard icon="fa-truck-fast" label="Received" value={stats.receivedToday} trend={receivedTrend} />
             </div>
 
             {/* Main Grid */}
@@ -205,6 +210,7 @@ export default function Index({ stats, trends, attention, activity, recentActivi
                     </table>
                 </CardContent>
             </Card>
+            </div>
         </AuthenticatedLayout>
     );
 }

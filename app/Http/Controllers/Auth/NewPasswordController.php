@@ -40,7 +40,7 @@ class NewPasswordController extends Controller
                 ])->save();
 
                 event(new PasswordReset($user));
-            }
+            },
         );
 
         if ($status == Password::PASSWORD_RESET) {

@@ -20,7 +20,7 @@ function peso(n) {
     return '₱' + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function Index({ inventory, receiving, dispensing, supplierSummary, overall = {}, range, filters }) {
+export default function Index({ inventory, receiving, dispensing, supplierSummary, deletions = { rows: [], total: 0 }, overall = {}, range, filters }) {
     const [tab, setTab] = useState('summary'); 
     const [invTab, setInvTab] = useState('overview');
     const [recvTab, setRecvTab] = useState('summary');
@@ -146,7 +146,7 @@ export default function Index({ inventory, receiving, dispensing, supplierSummar
             </div>
 
             <Tabs value={tab} onValueChange={setTab}>
-                <TabsList className="border-b-0 mb-5 bg-gray-100 p-1 rounded-xl inline-flex w-auto overflow-x-auto">
+                <TabsList className="border-b-0 mb-5 bg-gray-100 p-1 rounded-xl inline-flex flex-wrap w-full md:w-auto">
                     <TabsTrigger value="summary" className="rounded-lg px-4 py-1.5 text-[13px] font-semibold text-gray-500 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm transition-all">
                         <i className="fas fa-chart-pie mr-2 opacity-50" /> Summary
                     </TabsTrigger>
@@ -162,6 +162,9 @@ export default function Index({ inventory, receiving, dispensing, supplierSummar
                     <TabsTrigger value="suppliers" className="rounded-lg px-4 py-1.5 text-[13px] font-semibold text-gray-500 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm transition-all">
                         <i className="fas fa-truck mr-2 opacity-50" /> Suppliers
                     </TabsTrigger>
+                    <TabsTrigger value="deletions" className="rounded-lg px-4 py-1.5 text-[13px] font-semibold text-gray-500 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm transition-all">
+    <i className="fas fa-trash-can mr-2 opacity-50" /> Deletions
+</TabsTrigger>
                 </TabsList>
 
                 {/* ═══════════════ NEW SUMMARY TAB ═══════════════ */}
@@ -550,6 +553,42 @@ export default function Index({ inventory, receiving, dispensing, supplierSummar
                         </Card>
                     </div>
                 </TabsContent>
+                <TabsContent value="deletions" className="mt-0">
+    <Card>
+        <CardHeader>
+            <CardTitle>Deletion History</CardTitle>
+            <CardDescription>{deletions.total} deletion(s) recorded in this period.</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0 overflow-x-auto">
+            <table className="w-full min-w-[800px] text-left text-[13px]">
+                <thead>
+                    <tr className="border-b border-gray-100">
+                        <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Date</th>
+                        <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Type</th>
+                        <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Description</th>
+                        <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Reason</th>
+                        <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Deleted By</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                    {deletions.rows.length === 0 ? (
+                        <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No deletions in this period.</td></tr>
+                    ) : deletions.rows.map((d) => (
+                        <tr key={d.log_id} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="px-4 py-3 text-gray-600">{new Date(d.created_at).toLocaleString()}</td>
+                            <td className="px-4 py-3">
+                                <Badge tone={d.type === 'Stock-In' ? 'success' : 'rose'} outline>{d.type}</Badge>
+                            </td>
+                            <td className="px-4 py-3 text-gray-900">{d.description}</td>
+                            <td className="px-4 py-3 text-gray-600 italic">{d.reason}</td>
+                            <td className="px-4 py-3 text-gray-600">{d.user_name}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </CardContent>
+    </Card>
+</TabsContent>
             </Tabs>
         </AuthenticatedLayout>
     );

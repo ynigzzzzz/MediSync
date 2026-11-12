@@ -50,7 +50,7 @@ export default function Index({ transactions, totalFilteredRecords, stockInTotal
             `}</style>
 
             <div className="mb-5">
-                <h2 className="text-2xl font-semibold tracking-tight text-gray-900">Transaction History</h2>
+                <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Transaction History</h1>
                 <p className="text-[13px] text-gray-500">All stock-in and stock-out activity across the system.</p>
             </div>
 

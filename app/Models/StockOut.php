@@ -25,6 +25,7 @@ class StockOut extends Model
         'dispensed_by',
         'price',
         'stock_in_id',
+        'dispensed_at',
     ];
 
     // total_amount is GENERATED ALWAYS AS (quantity * price) STORED in
