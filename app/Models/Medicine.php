@@ -70,10 +70,7 @@ class Medicine extends Model
         ];
     }
 
-    /**
-     * Get the data needed for the catalog index page based on the filter.
-     */
-    public static function getCatalogData(string $filter)
+    public static function getCatalogData(string $filter, string $search = '', string $category = '', string $type = '')
     {
         $today = now()->toDateString();
         $allowedFilters = ['lowstock', 'outofstock', 'expiring', 'expired'];
@@ -82,68 +79,55 @@ class Medicine extends Model
             $filter = 'all';
         }
 
-        if ($filter === 'expiring') {
+        $query = self::query();
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('generic_name', 'ILIKE', "%{$search}%")
+                    ->orWhere('brand_name', 'ILIKE', "%{$search}%");
+            });
+        }
+        if ($category) {
+            $query->where('category', $category);
+        }
+        if ($type) {
+            $query->where('type', $type);
+        }
+
+        if ($filter === 'all') {
             return [
-                'medicines' => collect(),
-                'expiringBatches' => StockIn::with('medicine:medicine_id,generic_name,brand_name')
-                    ->where('remaining_quantity', '>', 0)
-                    ->whereDate('expiry_date', '>=', $today)
-                    ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
-                    ->orderBy('expiry_date')
-                    ->paginate(15)
-                    ->withQueryString(),
+                'medicines' => $query->orderBy('generic_name')->paginate(15)->withQueryString(),
+                'batches' => null,
             ];
         }
 
-        if ($filter === 'expired') {
-            return [
-                'medicines' => collect(),
-                'expiringBatches' => StockIn::with('medicine:medicine_id,generic_name,brand_name')
-                    ->where('remaining_quantity', '>', 0)
-                    ->whereDate('expiry_date', '<', $today)
-                    ->orderBy('expiry_date')
-                    ->paginate(15)
-                    ->withQueryString(),
-            ];
+        // For all other filters, we query StockIn batches
+        $batchQuery = StockIn::with('medicine:medicine_id,generic_name,brand_name,type,category');
+
+        if ($filter === 'outofstock') {
+            $medIds = (clone $query)->where('current_stock', 0)->pluck('medicine_id');
+            // NOTE: We do NOT filter by remaining_quantity > 0 here, so empty batches show up for disposal
+            $batchQuery->whereIn('medicine_id', $medIds);
+        } elseif ($filter === 'lowstock') {
+            $medIds = (clone $query)->whereBetween('current_stock', [1, 49])->pluck('medicine_id');
+            $batchQuery->whereIn('medicine_id', $medIds)->where('remaining_quantity', '>', 0);
+        } elseif ($filter === 'expiring') {
+            $batchQuery->where('remaining_quantity', '>', 0)
+                ->whereDate('expiry_date', '>=', $today)
+                ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString());
+        } elseif ($filter === 'expired') {
+            $batchQuery->where('remaining_quantity', '>', 0)
+                ->whereDate('expiry_date', '<', $today);
         }
 
         return [
-            'medicines' => self::query()
-                ->filterStatus($filter)
-                ->orderBy('generic_name')
-                ->paginate(15)
-                ->withQueryString(),
-            'expiringBatches' => null,
+            'medicines' => collect(),
+            'batches' => $batchQuery->orderBy('expiry_date')->paginate(15)->withQueryString(),
         ];
     }
 
     /**
-     * Generate the "Needs Attention" alerts for the catalog page.
-     */
-    public static function getAttentionAlerts(): array
-    {
-        $stats = self::getStats();
-        $attention = [];
-
-        if ($stats['outofstock'] > 0) {
-            $attention[] = ['type' => 'danger', 'icon' => 'fa-circle-xmark', 'message' => "{$stats['outofstock']} medicine(s) out of stock", 'link' => '/medicine-list?filter=outofstock'];
-        }
-        if ($stats['lowstock'] > 0) {
-            $attention[] = ['type' => 'warning', 'icon' => 'fa-triangle-exclamation', 'message' => "{$stats['lowstock']} medicine(s) low on stock", 'link' => '/medicine-list?filter=lowstock'];
-        }
-        if ($stats['expiring'] > 0) {
-            $attention[] = ['type' => 'warning', 'icon' => 'fa-hourglass-half', 'message' => "{$stats['expiring']} batch(es) expiring within 30 days", 'link' => '/medicine-list?filter=expiring'];
-        }
-        if ($stats['expired'] > 0) {
-            $attention[] = ['type' => 'danger', 'icon' => 'fa-ban', 'message' => "{$stats['expired']} expired batch(es) still in stock", 'link' => '/medicine-list?filter=expired'];
-        }
-
-        return $attention;
-    }
-
-    /**
      * FEFO (First-Expired, First-Out) dispensing.
-     * Must be called inside a DB::transaction — see StockDispensingController.
      */
     public function dispense(
         int $quantityNeeded,

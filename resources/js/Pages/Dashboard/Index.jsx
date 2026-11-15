@@ -2,7 +2,13 @@ import { useState, useMemo } from "react";
 import { Head, router } from "@inertiajs/react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import StatCard from "@/Components/StatCard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from "@/Components/ui/card";
 import { StackedBarChart } from "@/Components/Charts/StackedBarChart";
 import { DonutChart } from "@/Components/Charts/DonutChart";
 import { RadialChart } from "@/Components/Charts/RadialChart";
@@ -46,34 +52,17 @@ export default function Index({
         <AuthenticatedLayout>
             <Head title="Dashboard" />
             <div className="overflow-x-hidden">
-                <div className="mb-5 flex items-end justify-between">
-                    <div>
-                        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
-                            Dashboard
-                        </h1>
-                        <p className="text-[13px] text-gray-500">
-                            Overview of pharmacy operations and recent activity.
-                        </p>
-                    </div>
-                    <div className="flex bg-gray-100 p-1 rounded-lg">
-                        {["7d", "14d", "30d"].map((range) => (
-                            <button
-                                key={range}
-                                onClick={() => setTimeRange(range)}
-                                className={cn(
-                                    "px-3 py-1 text-[11px] font-semibold rounded-md transition-all",
-                                    timeRange === range
-                                        ? "bg-white text-gray-900 shadow-sm"
-                                        : "text-gray-500 hover:text-gray-900",
-                                )}
-                            >
-                                {range.toUpperCase()}
-                            </button>
-                        ))}
-                    </div>
+                <div className="mb-5">
+                    <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
+                        Dashboard
+                    </h1>
+                    <p className="text-[13px] text-gray-500">
+                        Overview of pharmacy operations and recent activity.
+                    </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                {/* 4x2 Grid for 8 Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <StatCard
                         icon="fa-capsules"
                         label="Total Meds"
@@ -107,6 +96,16 @@ export default function Index({
                             router.get("/medicine-list?filter=expiring")
                         }
                     />
+
+                    <StatCard
+                        icon="fa-ban"
+                        label="Expired"
+                        value={stats.expiredCount}
+                        tone="danger"
+                        onClick={() =>
+                            router.get("/medicine-list?filter=expired")
+                        }
+                    />
                     <StatCard
                         icon="fa-pills"
                         label="Dispensed"
@@ -119,14 +118,38 @@ export default function Index({
                         value={stats.receivedToday}
                         trend={receivedTrend}
                     />
+                    <StatCard
+                        icon="fa-users"
+                        label="Active Users"
+                        value={stats.totalUsers}
+                    />
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <NeedsAttentionList attention={attention} />
 
+                    {/* Chart with Filter Buttons inside Header */}
                     <Card className="lg:col-span-2">
-                        <CardHeader className="pb-2">
-                            <CardTitle>Daily Intake vs Outtake</CardTitle>
+                        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                            <div>
+                                <CardTitle>Daily Intake vs Outtake</CardTitle>
+                            </div>
+                            <div className="flex bg-gray-100 p-1 rounded-lg">
+                                {["7d", "14d", "30d"].map((range) => (
+                                    <button
+                                        key={range}
+                                        onClick={() => setTimeRange(range)}
+                                        className={cn(
+                                            "px-3 py-1 text-[11px] font-semibold rounded-md transition-all",
+                                            timeRange === range
+                                                ? "bg-white text-gray-900 shadow-sm"
+                                                : "text-gray-500 hover:text-gray-900",
+                                        )}
+                                    >
+                                        {range.toUpperCase()}
+                                    </button>
+                                ))}
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <StackedBarChart data={filteredActivity} />

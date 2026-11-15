@@ -88,6 +88,7 @@ class User extends Authenticatable
     public static function getStats(): array
     {
         return [
+            'total' => self::count(),
             'activeUsers' => self::where('status', 'active')->count(),
             'inactiveUsers' => self::where('status', 'inactive')->count(),
             'adminCount' => self::where('role', 'admin')->count(),

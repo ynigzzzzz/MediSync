@@ -5,7 +5,7 @@ import { SearchableSelect } from "@/Components/ui/searchable-select";
 const inputCls =
     "w-full rounded-xl border border-transparent bg-[#F2F2F7] px-3 py-2.5 text-[14px] text-gray-900 placeholder-gray-400 focus:border-gray-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-100 transition-all";
 const lockedCls =
-    "w-full rounded-xl border border-transparent bg-gray-100 px-3 py-2.5 text-[14px] text-gray-500 cursor-not-allowed";
+    "w-full rounded-xl border border-transparent bg-gray-100 px-3 py-2.5 text-[14px] text-gray-500 cursor-not-allowed placeholder-gray-400";
 
 export default function AddDispenseForm({ medicines, onClose }) {
     const { errors } = usePage().props;
@@ -24,6 +24,11 @@ export default function AddDispenseForm({ medicines, onClose }) {
         label: `${m.generic_name}${m.brand_name ? ` (${m.brand_name})` : ""} — stock: ${m.current_stock}`,
         data: m,
     }));
+
+    // Fallback unique ID generator
+    const generateId = () =>
+        Math.random().toString(36).substring(2, 15) +
+        Math.random().toString(36).substring(2, 15);
 
     function handleMedicineChange(val) {
         const med = medicines.find(
@@ -46,9 +51,10 @@ export default function AddDispenseForm({ medicines, onClose }) {
         );
         if (!med) return;
 
-        setCart([
-            ...cart,
+        setCart((prev) => [
+            ...prev,
             {
+                cart_id: generateId(),
                 medicine_id: med.medicine_id,
                 generic_name: med.generic_name,
                 brand_name: med.brand_name,
@@ -64,8 +70,8 @@ export default function AddDispenseForm({ medicines, onClose }) {
         setPrice("");
     }
 
-    function removeFromCart(i) {
-        setCart(cart.filter((_, idx) => idx !== i));
+    function removeFromCart(cartId) {
+        setCart((prev) => prev.filter((item) => item.cart_id !== cartId));
     }
 
     function submitDispense() {
@@ -85,6 +91,9 @@ export default function AddDispenseForm({ medicines, onClose }) {
             },
             {
                 onSuccess: () => {
+                    setCart([]);
+                    setPatientName("");
+                    setPrescriptionNo("");
                     onClose();
                 },
                 onFinish: () => setProcessing(false),
@@ -131,6 +140,7 @@ export default function AddDispenseForm({ medicines, onClose }) {
                             readOnly
                             className={lockedCls}
                             value={dosage}
+                            placeholder="Select a medicine first..."
                         />
                     </div>
                     <div>
@@ -142,6 +152,7 @@ export default function AddDispenseForm({ medicines, onClose }) {
                             readOnly
                             className={lockedCls}
                             value={price}
+                            placeholder="Select a medicine first..."
                         />
                     </div>
                 </div>
@@ -182,9 +193,9 @@ export default function AddDispenseForm({ medicines, onClose }) {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
-                                {cart.map((c, i) => (
+                                {cart.map((c) => (
                                     <tr
-                                        key={i}
+                                        key={c.cart_id}
                                         className="hover:bg-gray-50/50 transition-colors"
                                     >
                                         <td className="px-4 py-3 text-gray-900 font-medium">
@@ -204,7 +215,7 @@ export default function AddDispenseForm({ medicines, onClose }) {
                                         <td className="px-4 py-3 text-right">
                                             <button
                                                 onClick={() =>
-                                                    removeFromCart(i)
+                                                    removeFromCart(c.cart_id)
                                                 }
                                                 className="text-critical-red text-[13px] font-semibold hover:underline"
                                             >

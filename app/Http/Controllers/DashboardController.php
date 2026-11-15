@@ -6,6 +6,7 @@ use App\Models\ContactMessage;
 use App\Models\Medicine;
 use App\Models\StockIn;
 use App\Models\StockOut;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -16,7 +17,6 @@ class DashboardController extends Controller
         $today = now()->toDateString();
         $yesterday = now()->subDay()->toDateString();
 
-        // ── Stat cards ──
         $stats = [
             'totalMedicines' => Medicine::count(),
             'lowStockCount' => Medicine::whereBetween('current_stock', [1, 49])->count(),
@@ -25,11 +25,14 @@ class DashboardController extends Controller
                 ->whereDate('expiry_date', '>=', $today)
                 ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
                 ->count(),
+            'expiredCount' => StockIn::where('remaining_quantity', '>', 0)
+                ->whereDate('expiry_date', '<', $today)
+                ->count(),
             'dispensedToday' => (int) StockOut::whereDate('dispensed_at', $today)->sum('quantity'),
             'receivedToday' => (int) StockIn::whereDate('recorded_at', $today)->sum('quantity'),
+            'totalUsers' => User::where('status', 'active')->count(),
         ];
 
-        // ── Today vs yesterday ──
         $trends = [
             'dispensed' => [
                 'current' => $stats['dispensedToday'],
@@ -41,67 +44,28 @@ class DashboardController extends Controller
             ],
         ];
 
-        // ── Needs Attention rows ──
         $attention = [];
 
         if ($stats['outOfStockCount'] > 0) {
-            $attention[] = [
-                'type' => 'danger',
-                'icon' => 'fa-circle-xmark',
-                'message' => "{$stats['outOfStockCount']} medicine(s) out of stock",
-                'link' => '/medicine-list?filter=outofstock',
-            ];
+            $attention[] = ['type' => 'danger', 'icon' => 'fa-circle-xmark', 'message' => "{$stats['outOfStockCount']} medicine(s) out of stock", 'link' => '/medicine-list?filter=outofstock'];
         }
-
         if ($stats['lowStockCount'] > 0) {
-            $attention[] = [
-                'type' => 'warning',
-                'icon' => 'fa-triangle-exclamation',
-                'message' => "{$stats['lowStockCount']} medicine(s) low on stock",
-                'link' => '/medicine-list?filter=lowstock',
-            ];
+            $attention[] = ['type' => 'warning', 'icon' => 'fa-triangle-exclamation', 'message' => "{$stats['lowStockCount']} medicine(s) low on stock", 'link' => '/medicine-list?filter=lowstock'];
         }
-
-        $expiringBatches = StockIn::where('remaining_quantity', '>', 0)
-            ->whereDate('expiry_date', '>=', $today)
-            ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
-            ->count();
-
-        if ($expiringBatches > 0) {
-            $attention[] = [
-                'type' => 'warning',
-                'icon' => 'fa-hourglass-half',
-                'message' => "{$expiringBatches} batch(es) expiring within 30 days",
-                'link' => '/medicine-list?filter=expiring',
-            ];
+        if ($stats['expiringSoonCount'] > 0) {
+            $attention[] = ['type' => 'warning', 'icon' => 'fa-hourglass-half', 'message' => "{$stats['expiringSoonCount']} batch(es) expiring within 30 days", 'link' => '/medicine-list?filter=expiring'];
         }
-
-        $expiredBatches = StockIn::where('remaining_quantity', '>', 0)
-            ->whereDate('expiry_date', '<', $today)
-            ->count();
-
-        if ($expiredBatches > 0) {
-            $attention[] = [
-                'type' => 'danger',
-                'icon' => 'fa-ban',
-                'message' => "{$expiredBatches} expired batch(es) still in stock",
-                'link' => '/medicine-list?filter=expired',
-            ];
+        if ($stats['expiredCount'] > 0) {
+            $attention[] = ['type' => 'danger', 'icon' => 'fa-ban', 'message' => "{$stats['expiredCount']} expired batch(es) still in stock", 'link' => '/medicine-list?filter=expired'];
         }
 
         if ($request->user()->role === 'admin') {
             $newContacts = ContactMessage::where('submitted_at', '>=', now()->subDays(7))->count();
             if ($newContacts > 0) {
-                $attention[] = [
-                    'type' => 'rose',
-                    'icon' => 'fa-envelope',
-                    'message' => "{$newContacts} new contact message(s) this week",
-                    'link' => '/contact',
-                ];
+                $attention[] = ['type' => 'rose', 'icon' => 'fa-envelope', 'message' => "{$newContacts} new contact message(s) this week", 'link' => '/contact'];
             }
         }
 
-        // ── 30-day activity series ──
         $start = now()->subDays(29)->startOfDay();
 
         $receivedByDay = StockIn::where('recorded_at', '>=', $start)
@@ -126,7 +90,6 @@ class DashboardController extends Controller
             ];
         }
 
-        // ── Recent dispensing (5 rows) ──
         $recentActivity = StockOut::with([
             'medicine:medicine_id,generic_name',
             'dispensedBy:user_id,full_name',

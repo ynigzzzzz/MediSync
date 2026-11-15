@@ -308,4 +308,27 @@ class ReportController extends Controller
 
         return view('reports.print', compact('tab', 'from', 'to', 'medicines', 'receivingRows', 'dispensingRows', 'suppliers', 'deletions'));
     }
+
+    public function exportCsv(Request $request)
+    {
+        $tab = $request->query('tab', 'inventory');
+        $from = $request->query('from') ?: now()->subDays(29)->toDateString();
+        $to = $request->query('to') ?: now()->toDateString();
+
+        $filename = "report_{$tab}_{$from}_to_{$to}.csv";
+
+        // This is a simplified export, you can expand it per tab
+        $headers = ['Report', 'Date Generated'];
+        $data = [[$tab, now()->toDateTimeString()]];
+
+        return response()->streamDownload(function () use ($headers, $data) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, chr(0xEF).chr(0xBB).chr(0xBF));
+            fputcsv($out, $headers);
+            foreach ($data as $row) {
+                fputcsv($out, $row);
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv; charset=utf-8']);
+    }
 }

@@ -34,8 +34,6 @@ class StockOut extends Model
         'dispensed_at' => 'datetime',
     ];
 
-    // --- Relationships ---
-
     public function medicine()
     {
         return $this->belongsTo(Medicine::class, 'medicine_id', 'medicine_id');
@@ -51,20 +49,35 @@ class StockOut extends Model
         return $this->belongsTo(StockIn::class, 'stock_in_id', 'stock_in_id');
     }
 
-    // --- Query Scopes & Logic ---
-
-    public static function getDispensingData()
+    public static function getDispensingData(array $filters = [])
     {
-        return [
-            'stockOutRecords' => self::with([
-                'medicine:medicine_id,generic_name,brand_name,dosage',
-                'dispensedBy:user_id,full_name',
-                'stockIn:stock_in_id,batch_no,expiry_date',
-            ])
-                ->orderByDesc('dispensed_at')
-                ->paginate(15)
-                ->withQueryString(),
+        $query = self::with([
+            'medicine:medicine_id,generic_name,brand_name,dosage',
+            'dispensedBy:user_id,full_name',
+            'stockIn:stock_in_id,batch_no,expiry_date',
+        ])->orderByDesc('dispensed_at');
 
+        if (! empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('patient_name', 'ILIKE', "%{$search}%")
+                    ->orWhere('prescription_no', 'ILIKE', "%{$search}%")
+                    ->orWhereHas('medicine', function ($mq) use ($search) {
+                        $mq->where('generic_name', 'ILIKE', "%{$search}%")
+                            ->orWhere('brand_name', 'ILIKE', "%{$search}%");
+                    });
+            });
+        }
+
+        if (! empty($filters['date_from'])) {
+            $query->whereDate('dispensed_at', '>=', $filters['date_from']);
+        }
+        if (! empty($filters['date_to'])) {
+            $query->whereDate('dispensed_at', '<=', $filters['date_to']);
+        }
+
+        return [
+            'stockOutRecords' => $query->paginate(15)->withQueryString(),
             'medicines' => Medicine::where('current_stock', '>', 0)
                 ->orderBy('generic_name')
                 ->get(['medicine_id', 'generic_name', 'brand_name', 'dosage', 'current_stock', 'price']),

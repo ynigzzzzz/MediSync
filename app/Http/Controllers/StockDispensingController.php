@@ -18,12 +18,22 @@ class StockDispensingController extends Controller
 {
     public function index(Request $request)
     {
-        $data = StockOut::getDispensingData();
+        $filters = $request->only(['search', 'date_from', 'date_to']);
+        $data = StockOut::getDispensingData($filters);
 
         return Inertia::render('StockDispensing/Index', [
             'medicines' => $data['medicines'],
             'stockOutRecords' => $data['stockOutRecords'],
             'alerts' => StockAlertService::getAlerts(),
+            'stats' => [
+                'low_stock' => Medicine::whereBetween('current_stock', [1, 49])->count(),
+                'out_of_stock' => Medicine::where('current_stock', 0)->count(),
+                'expiring' => StockIn::where('remaining_quantity', '>', 0)
+                    ->whereDate('expiry_date', '>=', now()->toDateString())
+                    ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
+                    ->count(),
+            ],
+            'filters' => $filters,
         ]);
     }
 

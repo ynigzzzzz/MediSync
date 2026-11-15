@@ -74,6 +74,9 @@ Route::middleware(['auth'])->group(function () {
     // Contact
     Route::get('/contact', [ContactController::class, 'create'])->name('contact.index');
     Route::post('/contact', [ContactController::class, 'store'])->name('contact.store');
+
+    // Print
+    Route::get('/transaction-history/print', [TransactionHistoryController::class, 'print'])->name('transaction-history.print');
 });
 
 require __DIR__.'/auth.php';

@@ -35,7 +35,7 @@ export default function HistoryFilters({ users, initialFilters }) {
                 onSubmit={applyFilters}
                 className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end"
             >
-                <div>
+                <div className="md:col-span-2">
                     <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
                         Search
                     </label>
@@ -83,7 +83,7 @@ export default function HistoryFilters({ users, initialFilters }) {
                         onChange={(e) => setDateTo(e.target.value)}
                     />
                 </div>
-                <div>
+                <div className="md:col-span-4">
                     <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
                         User
                     </label>
@@ -100,20 +100,19 @@ export default function HistoryFilters({ users, initialFilters }) {
                         ))}
                     </select>
                 </div>
-
-                <div className="md:col-span-5 flex justify-end gap-3 mt-2">
+                <div className="md:col-span-1 flex justify-end gap-2">
                     <button
                         type="button"
                         onClick={clearFilters}
-                        className="px-4 py-2 text-[13px] font-semibold text-gray-500 hover:text-gray-900 transition-colors"
+                        className="px-4 py-2.5 text-[13px] font-semibold text-gray-500 hover:text-gray-900 transition-colors"
                     >
                         Clear
                     </button>
                     <button
                         type="submit"
-                        className="rounded-full bg-gray-900 text-white text-[13px] font-semibold px-6 py-2 hover:bg-black transition-colors shadow-sm"
+                        className="rounded-full bg-gray-900 text-white text-[13px] font-semibold px-6 py-2.5 hover:bg-black transition-colors shadow-sm"
                     >
-                        Apply Filters
+                        Filter
                     </button>
                 </div>
             </form>

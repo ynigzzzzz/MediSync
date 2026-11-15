@@ -20,7 +20,8 @@ class StockReceivingController extends Controller
     {
         abort_if($request->user()->role === 'assistant', 403);
 
-        $data = StockIn::getReceivingData();
+        $filters = $request->only(['search', 'date_from', 'date_to']);
+        $data = StockIn::getReceivingData($filters);
 
         return Inertia::render('StockReceiving/Index', [
             'medicines' => Medicine::select('medicine_id', 'generic_name', 'brand_name', 'current_stock', 'price', 'dosage')->orderBy('generic_name')->get(),
@@ -28,6 +29,15 @@ class StockReceivingController extends Controller
             'records' => $data['records'],
             'expiringBatches' => $data['expiringBatches'],
             'alerts' => StockAlertService::getAlerts(),
+            'stats' => [
+                'low_stock' => Medicine::whereBetween('current_stock', [1, 49])->count(),
+                'out_of_stock' => Medicine::where('current_stock', 0)->count(),
+                'expiring' => StockIn::where('remaining_quantity', '>', 0)
+                    ->whereDate('expiry_date', '>=', now()->toDateString())
+                    ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
+                    ->count(),
+            ],
+            'filters' => $filters,
         ]);
     }
 

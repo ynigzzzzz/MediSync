@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateMedicineRequest;
 use App\Models\AuditLog;
 use App\Models\Medicine;
 use App\Models\StockIn;
+use App\Services\CatalogService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -17,16 +18,19 @@ class MedicineCatalogController extends Controller
     public function index(Request $request)
     {
         $filter = $request->query('filter', 'all');
+        $search = $request->query('search', '');
+        $category = $request->query('category', '');
+        $type = $request->query('type', '');
 
-        // Ask the Model for the data instead of doing it all here
-        $data = Medicine::getCatalogData($filter);
+        $data = Medicine::getCatalogData($filter, $search, $category, $type);
 
         return Inertia::render('MedicineCatalog/Index', [
             'medicines' => $data['medicines'],
-            'expiringBatches' => $data['expiringBatches'],
+            'batches' => $data['batches'],
             'stats' => Medicine::getStats(),
-            'attention' => Medicine::getAttentionAlerts(),
+            'attention' => CatalogService::getAttentionAlerts(),
             'activeFilter' => $filter,
+            'filters' => compact('search', 'category', 'type'),
         ]);
     }
 

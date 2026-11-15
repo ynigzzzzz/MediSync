@@ -45,8 +45,6 @@ class StockIn extends Model
         );
     }
 
-    // --- Relationships ---
-
     public function medicine()
     {
         return $this->belongsTo(Medicine::class, 'medicine_id', 'medicine_id');
@@ -62,20 +60,35 @@ class StockIn extends Model
         return $this->belongsTo(Supplier::class, 'supplier_id', 'supplier_id');
     }
 
-    // --- Query Scopes & Logic ---
-
-    public static function getReceivingData()
+    public static function getReceivingData(array $filters = [])
     {
-        return [
-            'records' => self::with([
-                'medicine:medicine_id,generic_name,price',
-                'receivedBy:user_id,full_name',
-                'supplier:supplier_id,name',
-            ])
-                ->orderByDesc('recorded_at')
-                ->paginate(15)
-                ->withQueryString(),
+        $query = self::with([
+            'medicine:medicine_id,generic_name,price',
+            'receivedBy:user_id,full_name',
+            'supplier:supplier_id,name',
+        ])->orderByDesc('recorded_at');
 
+        if (! empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('batch_no', 'ILIKE', "%{$search}%")
+                    ->orWhere('supplier', 'ILIKE', "%{$search}%")
+                    ->orWhereHas('medicine', function ($mq) use ($search) {
+                        $mq->where('generic_name', 'ILIKE', "%{$search}%")
+                            ->orWhere('brand_name', 'ILIKE', "%{$search}%");
+                    });
+            });
+        }
+
+        if (! empty($filters['date_from'])) {
+            $query->whereDate('recorded_at', '>=', $filters['date_from']);
+        }
+        if (! empty($filters['date_to'])) {
+            $query->whereDate('recorded_at', '<=', $filters['date_to']);
+        }
+
+        return [
+            'records' => $query->paginate(15)->withQueryString(),
             'expiringBatches' => self::with('medicine:medicine_id,generic_name,brand_name')
                 ->where('remaining_quantity', '>', 0)
                 ->whereDate('expiry_date', '>=', now()->toDateString())

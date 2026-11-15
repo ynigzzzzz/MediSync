@@ -1,9 +1,32 @@
 import { useForm } from "@inertiajs/react";
+import { SearchableSelect } from "@/Components/ui/searchable-select";
 
 const inputCls =
     "w-full rounded-xl border border-transparent bg-[#F2F2F7] px-3 py-2 text-[14px] text-gray-900 focus:border-[#FF4D79] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#FF4D79]/20 transition-all";
+const DEFAULT_TYPES = [
+    "Tablet",
+    "Capsule",
+    "Syrup",
+    "Suspension",
+    "Injection",
+    "Ointment",
+    "Drops",
+];
+const DEFAULT_CATEGORIES = [
+    "Allergies",
+    "Stomach Pain",
+    "Headache",
+    "Fever",
+    "Cough",
+    "Antibiotic",
+    "Vitamins",
+];
 
-export default function AddMedicineForm({ onClose }) {
+export default function AddMedicineForm({
+    onClose,
+    types = [],
+    categories = [],
+}) {
     const { data, setData, post, processing, errors, reset } = useForm({
         generic_name: "",
         brand_name: "",
@@ -12,6 +35,9 @@ export default function AddMedicineForm({ onClose }) {
         dosage: "",
         price: "",
     });
+
+    const allTypes = [...new Set([...DEFAULT_TYPES, ...types])];
+    const allCategories = [...new Set([...DEFAULT_CATEGORIES, ...categories])];
 
     function submit(e) {
         e.preventDefault();
@@ -44,11 +70,6 @@ export default function AddMedicineForm({ onClose }) {
                         }
                         required
                     />
-                    {errors.generic_name && (
-                        <p className="text-red-500 text-[11px] mt-1">
-                            {errors.generic_name}
-                        </p>
-                    )}
                 </div>
                 <div>
                     <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
@@ -60,11 +81,6 @@ export default function AddMedicineForm({ onClose }) {
                         onChange={(e) => setData("brand_name", e.target.value)}
                         required
                     />
-                    {errors.brand_name && (
-                        <p className="text-red-500 text-[11px] mt-1">
-                            {errors.brand_name}
-                        </p>
-                    )}
                 </div>
                 <div>
                     <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
@@ -77,45 +93,30 @@ export default function AddMedicineForm({ onClose }) {
                         required
                         placeholder="e.g. 500mg"
                     />
-                    {errors.dosage && (
-                        <p className="text-red-500 text-[11px] mt-1">
-                            {errors.dosage}
-                        </p>
-                    )}
                 </div>
                 <div>
                     <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
                         Type<span className="text-critical-red">*</span>
                     </label>
-                    <input
-                        className={inputCls}
+                    <SearchableSelect
                         value={data.type}
-                        onChange={(e) => setData("type", e.target.value)}
-                        required
-                        placeholder="e.g. Tablet"
+                        onChange={(val) => setData("type", val)}
+                        options={allTypes}
+                        placeholder="Select type..."
+                        allowCustom={true}
                     />
-                    {errors.type && (
-                        <p className="text-red-500 text-[11px] mt-1">
-                            {errors.type}
-                        </p>
-                    )}
                 </div>
                 <div>
                     <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
                         Category<span className="text-critical-red">*</span>
                     </label>
-                    <input
-                        className={inputCls}
+                    <SearchableSelect
                         value={data.category}
-                        onChange={(e) => setData("category", e.target.value)}
-                        required
-                        placeholder="e.g. Antibiotic"
+                        onChange={(val) => setData("category", val)}
+                        options={allCategories}
+                        placeholder="Select category..."
+                        allowCustom={true}
                     />
-                    {errors.category && (
-                        <p className="text-red-500 text-[11px] mt-1">
-                            {errors.category}
-                        </p>
-                    )}
                 </div>
                 <div>
                     <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
@@ -131,11 +132,6 @@ export default function AddMedicineForm({ onClose }) {
                         onChange={(e) => setData("price", e.target.value)}
                         required
                     />
-                    {errors.price && (
-                        <p className="text-red-500 text-[11px] mt-1">
-                            {errors.price}
-                        </p>
-                    )}
                 </div>
                 <div className="md:col-span-3 flex justify-end mt-2">
                     <button
