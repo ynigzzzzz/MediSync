@@ -27,7 +27,6 @@ class ReportController extends Controller
         // ── Overall Summary (All-Time) ──
         $totalRevenue = (float) StockOut::select(DB::raw('COALESCE(SUM(total_amount), 0) as v'))->value('v');
 
-        // Calculate COGS (Cost of Goods Sold) safely
         $cogs = (float) DB::table('stock_out')
             ->leftJoin('stock_in', 'stock_out.stock_in_id', '=', 'stock_in.stock_in_id')
             ->join('medicines', 'stock_out.medicine_id', '=', 'medicines.medicine_id')
@@ -186,10 +185,16 @@ class ReportController extends Controller
                 ];
             });
 
-        // ── Deletions ──
+        // ── Deletions (FIXED TO INCLUDE MEDICINES, SUPPLIERS, USERS) ──
         $deletionsQuery = DB::table('audit_log')
             ->leftJoin('users as u', 'audit_log.user_id', '=', 'u.user_id')
-            ->whereIn('audit_log.action_type', ['DELETE_STOCK_IN', 'DELETE_STOCK_OUT'])
+            ->whereIn('audit_log.action_type', [
+                'DELETE_STOCK_IN',
+                'DELETE_STOCK_OUT',
+                'DELETE_MEDICINE',
+                'DELETE_SUPPLIER',
+                'DELETE_USER',
+            ])
             ->whereDate('audit_log.created_at', '>=', $from)
             ->whereDate('audit_log.created_at', '<=', $to)
             ->select(
@@ -201,6 +206,14 @@ class ReportController extends Controller
                 'u.full_name as user_name',
             );
 
+        $typeMap = [
+            'DELETE_STOCK_IN' => 'Stock-In',
+            'DELETE_STOCK_OUT' => 'Stock-Out',
+            'DELETE_MEDICINE' => 'Medicine',
+            'DELETE_SUPPLIER' => 'Supplier',
+            'DELETE_USER' => 'User',
+        ];
+
         $deletions = [
             'total' => (clone $deletionsQuery)->count(),
             'rows' => (clone $deletionsQuery)
@@ -209,7 +222,7 @@ class ReportController extends Controller
                 ->get()
                 ->map(fn ($r) => [
                     'log_id' => $r->log_id,
-                    'type' => $r->action_type === 'DELETE_STOCK_IN' ? 'Stock-In' : 'Stock-Out',
+                    'type' => $typeMap[$r->action_type] ?? $r->action_type,
                     'description' => $r->description,
                     'reason' => $r->reason ?? '—',
                     'user_name' => $r->user_name ?? 'System',
@@ -280,7 +293,13 @@ class ReportController extends Controller
 
         $deletions = DB::table('audit_log')
             ->leftJoin('users as u', 'audit_log.user_id', '=', 'u.user_id')
-            ->whereIn('audit_log.action_type', ['DELETE_STOCK_IN', 'DELETE_STOCK_OUT'])
+            ->whereIn('audit_log.action_type', [
+                'DELETE_STOCK_IN',
+                'DELETE_STOCK_OUT',
+                'DELETE_MEDICINE',
+                'DELETE_SUPPLIER',
+                'DELETE_USER',
+            ])
             ->whereDate('audit_log.created_at', '>=', $from)
             ->whereDate('audit_log.created_at', '<=', $to)
             ->select('audit_log.action_type', 'audit_log.description', 'audit_log.reason', 'audit_log.created_at', 'u.full_name as user_name')

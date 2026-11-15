@@ -11,19 +11,14 @@ use App\Http\Controllers\StockReceivingController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TransactionHistoryController;
 use App\Http\Controllers\UserManagementController;
-use App\Http\Middleware\EnsureUserIsActive;
-use App\Http\Middleware\ForcePasswordChange;
-use App\Http\Middleware\SyncStockAlerts;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('login'));
 
-Route::middleware([
-    'auth',
-    EnsureUserIsActive::class,
-    SyncStockAlerts::class,
-    ForcePasswordChange::class,
-])->group(function () {
+// Auth + active-user + password-change + stock-alert-sync middleware
+// are registered globally in bootstrap/app.php (web group). Only the
+// `auth` gate needs to be applied per-route here.
+Route::middleware(['auth'])->group(function () {
 
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

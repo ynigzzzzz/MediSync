@@ -20,16 +20,33 @@ class Supplier extends Model
         'created_at' => 'datetime',
     ];
 
-    // --- Fat Model Logic ---
+    // --- Relationships ---
 
     public function stockIn()
     {
         return $this->hasMany(StockIn::class, 'supplier_id', 'supplier_id');
     }
 
-    /**
-     * Scope a query to apply search and status filters.
-     */
+    // --- Query Scopes & Logic ---
+
+    public static function getIndexData(array $filters)
+    {
+        return self::query()
+            ->filter($filters)
+            ->orderBy('name')
+            ->paginate(15)
+            ->withQueryString();
+    }
+
+    public static function getStats(): array
+    {
+        return [
+            'total' => self::count(),
+            'active' => self::where('status', 'active')->count(),
+            'inactive' => self::where('status', 'inactive')->count(),
+        ];
+    }
+
     public function scopeFilter($query, array $filters)
     {
         $query->when($filters['search'] ?? false, function ($q, $search) {

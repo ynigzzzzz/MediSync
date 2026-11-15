@@ -22,7 +22,20 @@ class StoreContactRequest extends FormRequest
             'inquiry_type' => ['required', Rule::in(array_keys(ContactController::INQUIRY_TYPES))],
             'subject' => ['required', 'string', 'max:200'],
             'message' => ['required', 'string'],
-            'attachment' => ['nullable', 'file', 'max:5120'],
+            'attachment' => [
+                'nullable',
+                'file',
+                'mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,txt,csv',
+                'max:5120',
+            ],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'attachment.mimes' => 'Attachment must be one of: PDF, JPG, JPEG, PNG, GIF, WEBP, DOC, DOCX, TXT, CSV.',
+            'attachment.max' => 'Attachment may not be larger than 5 MB.',
         ];
     }
 }

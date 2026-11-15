@@ -24,10 +24,12 @@ class User extends Authenticatable
         'status',
         'profile_image',
         'must_change_password',
+        'remember_token',
     ];
 
     protected $hidden = [
         'password_hash',
+        'remember_token',
     ];
 
     protected $casts = [
@@ -35,10 +37,6 @@ class User extends Authenticatable
         'must_change_password' => 'boolean',
     ];
 
-    /**
-     * Laravel's auth guard expects getAuthPassword() to return the hash -
-     * our column is password_hash, not the default password.
-     */
     public function getAuthPassword(): string
     {
         return $this->password_hash;
@@ -53,6 +51,8 @@ class User extends Authenticatable
     {
         return $this->role === 'admin';
     }
+
+    // --- Relationships ---
 
     public function stockIn()
     {
@@ -74,9 +74,26 @@ class User extends Authenticatable
         return $this->hasMany(AuditLog::class, 'user_id', 'user_id');
     }
 
-    /**
-     * Apply search and role filters.
-     */
+    // --- Query Scopes & Logic ---
+
+    public static function getIndexData(array $filters)
+    {
+        return self::query()
+            ->filter($filters)
+            ->orderBy('full_name')
+            ->paginate(15)
+            ->withQueryString();
+    }
+
+    public static function getStats(): array
+    {
+        return [
+            'activeUsers' => self::where('status', 'active')->count(),
+            'inactiveUsers' => self::where('status', 'inactive')->count(),
+            'adminCount' => self::where('role', 'admin')->count(),
+        ];
+    }
+
     public function scopeFilter($query, array $filters)
     {
         $query->when($filters['search'] ?? false, function ($q, $search) {
@@ -93,9 +110,6 @@ class User extends Authenticatable
         });
     }
 
-    /**
-     * Toggle the user's active status.
-     */
     public function toggleStatus(): string
     {
         $newStatus = $this->status === 'active' ? 'inactive' : 'active';

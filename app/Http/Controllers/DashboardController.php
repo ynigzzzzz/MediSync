@@ -29,7 +29,7 @@ class DashboardController extends Controller
             'receivedToday' => (int) StockIn::whereDate('recorded_at', $today)->sum('quantity'),
         ];
 
-        // ── Today vs yesterday, for the two daily cards only ──
+        // ── Today vs yesterday ──
         $trends = [
             'dispensed' => [
                 'current' => $stats['dispensedToday'],
@@ -72,7 +72,7 @@ class DashboardController extends Controller
                 'type' => 'warning',
                 'icon' => 'fa-hourglass-half',
                 'message' => "{$expiringBatches} batch(es) expiring within 30 days",
-                'link' => '/stock-receiving',
+                'link' => '/medicine-list?filter=expiring',
             ];
         }
 
@@ -85,7 +85,7 @@ class DashboardController extends Controller
                 'type' => 'danger',
                 'icon' => 'fa-ban',
                 'message' => "{$expiredBatches} expired batch(es) still in stock",
-                'link' => '/stock-receiving',
+                'link' => '/medicine-list?filter=expired',
             ];
         }
 
@@ -101,7 +101,7 @@ class DashboardController extends Controller
             }
         }
 
-        // ── 30-day activity series (units received vs dispensed per day) ──
+        // ── 30-day activity series ──
         $start = now()->subDays(29)->startOfDay();
 
         $receivedByDay = StockIn::where('recorded_at', '>=', $start)

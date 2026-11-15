@@ -12,13 +12,13 @@ use Inertia\Inertia;
 class ContactController extends Controller
 {
     public const INQUIRY_TYPES = [
-        'bug' => '🐛 Report a Bug / Issue',
-        'feature' => '✨ Request a Feature',
-        'tech' => '❓ Technical Support',
-        'inventory' => '📊 Inventory Data Discrepancy',
-        'feedback' => '💡 Feedback / Suggestion',
-        'account' => '🔒 Account Access Issue',
-        'general' => '📝 General Inquiry',
+        'bug' => 'Report a Bug / Issue',
+        'feature' => 'Request a Feature',
+        'tech' => 'Technical Support',
+        'inventory' => 'Inventory Data Discrepancy',
+        'feedback' => 'Feedback / Suggestion',
+        'account' => 'Account Access Issue',
+        'general' => 'General Inquiry',
     ];
 
     public function create()
@@ -54,10 +54,18 @@ class ContactController extends Controller
 
         try {
             $supportInbox = config('mail.support_inbox') ?? config('mail.from.address');
-            Mail::to($supportInbox)->send(
-                new ContactSupportRequest($contactMessage, self::INQUIRY_TYPES[$data['inquiry_type']]),
-            );
-        } catch (\Exception $e) {
+
+            if (! empty($supportInbox) && filter_var($supportInbox, FILTER_VALIDATE_EMAIL)) {
+                Mail::to($supportInbox)->send(
+                    new ContactSupportRequest($contactMessage, self::INQUIRY_TYPES[$data['inquiry_type']]),
+                );
+            } else {
+                \Log::warning('Contact message stored but no valid support inbox is configured.', [
+                    'message_id' => $contactMessage->message_id,
+                    'support_inbox_value' => $supportInbox,
+                ]);
+            }
+        } catch (\Throwable $e) {
             report($e);
         }
 

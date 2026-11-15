@@ -28,15 +28,13 @@ class StockOut extends Model
         'dispensed_at',
     ];
 
-    // total_amount is GENERATED ALWAYS AS (quantity * price) STORED in
-    // Postgres — deliberately left out of $fillable above; never write to
-    // it directly, it's computed by the database on insert/update.
-
     protected $casts = [
         'price' => 'decimal:2',
         'total_amount' => 'decimal:2',
         'dispensed_at' => 'datetime',
     ];
+
+    // --- Relationships ---
 
     public function medicine()
     {
@@ -53,9 +51,26 @@ class StockOut extends Model
         return $this->belongsTo(StockIn::class, 'stock_in_id', 'stock_in_id');
     }
 
-    /**
-     * Build the unified transaction history query (Stock-In + Stock-Out).
-     */
+    // --- Query Scopes & Logic ---
+
+    public static function getDispensingData()
+    {
+        return [
+            'stockOutRecords' => self::with([
+                'medicine:medicine_id,generic_name,brand_name,dosage',
+                'dispensedBy:user_id,full_name',
+                'stockIn:stock_in_id,batch_no,expiry_date',
+            ])
+                ->orderByDesc('dispensed_at')
+                ->paginate(15)
+                ->withQueryString(),
+
+            'medicines' => Medicine::where('current_stock', '>', 0)
+                ->orderBy('generic_name')
+                ->get(['medicine_id', 'generic_name', 'brand_name', 'dosage', 'current_stock', 'price']),
+        ];
+    }
+
     public static function getTransactionHistory(array $filters)
     {
         $stockIn = DB::table('stock_in as si')
@@ -86,7 +101,6 @@ class StockOut extends Model
 
         $query = DB::query()->fromSub($stockIn->unionAll($stockOut), 't');
 
-        // Apply Filters
         $query->when($filters['search'] ?? false, function ($q, $search) {
             $like = "%{$search}%";
             $q->where(function ($sub) use ($like) {

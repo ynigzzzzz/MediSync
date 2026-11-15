@@ -75,7 +75,7 @@ class NotificationService
     {
         $alerts = [];
 
-        // Out of stock
+        // ── Out of stock ──
         Medicine::where('current_stock', 0)
             ->orderBy('generic_name')
             ->get(['medicine_id', 'generic_name', 'brand_name'])
@@ -85,11 +85,11 @@ class NotificationService
                     'key' => 'out_of_stock:'.$m->medicine_id,
                     'title' => 'Out of stock: '.$m->generic_name,
                     'message' => ($m->brand_name ? $m->brand_name.' — ' : '').'0 units remaining.',
-                    'link' => '/medicine-list?filter=outofstock', // Correct link
+                    'link' => '/medicine-list?filter=outofstock',
                 ];
             });
 
-        // Low stock
+        // ── Low stock ──
         Medicine::whereBetween('current_stock', [1, self::LOW_STOCK_THRESHOLD - 1])
             ->orderBy('generic_name')
             ->get(['medicine_id', 'generic_name', 'brand_name', 'current_stock'])
@@ -99,11 +99,11 @@ class NotificationService
                     'key' => 'low_stock:'.$m->medicine_id,
                     'title' => 'Low stock: '.$m->generic_name,
                     'message' => ($m->brand_name ? $m->brand_name.' — ' : '').$m->current_stock.' units remaining.',
-                    'link' => '/medicine-list?filter=lowstock', // Correct link
+                    'link' => '/medicine-list?filter=lowstock',
                 ];
             });
 
-        // Expiring within 30 days
+        // ── Expiring within 30 days (still in the future) ──
         StockIn::where('remaining_quantity', '>', 0)
             ->whereDate('expiry_date', '>=', now()->toDateString())
             ->whereDate('expiry_date', '<=', now()->addDays(self::EXPIRING_DAYS)->toDateString())
@@ -115,11 +115,11 @@ class NotificationService
                     'key' => 'expiring:'.$b->stock_in_id,
                     'title' => 'Expiring soon: '.($b->medicine->generic_name ?? 'Unknown'),
                     'message' => 'Batch '.$b->batch_no.' expires '.$b->expiry_date.'.',
-                    'link' => '/medicine-list?filter=expiring', // Correct link
+                    'link' => '/medicine-list?filter=expiring',
                 ];
             });
 
-        // Already expired
+        // ── Already expired (past) ──
         StockIn::where('remaining_quantity', '>', 0)
             ->whereDate('expiry_date', '<', now()->toDateString())
             ->with('medicine:medicine_id,generic_name,brand_name')
@@ -130,7 +130,7 @@ class NotificationService
                     'key' => 'expired:'.$b->stock_in_id,
                     'title' => 'Expired: '.($b->medicine->generic_name ?? 'Unknown'),
                     'message' => 'Batch '.$b->batch_no.' expired on '.$b->expiry_date.'.',
-                    'link' => '/medicine-list?filter=expiring', // Points to expiring view which shows expired ones too
+                    'link' => '/medicine-list?filter=expired',
                 ];
             });
 

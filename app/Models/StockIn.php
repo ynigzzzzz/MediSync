@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -28,6 +29,22 @@ class StockIn extends Model
         'remaining_quantity' => 'integer',
     ];
 
+    protected $appends = ['days_left'];
+
+    public function getDaysLeftAttribute(): int
+    {
+        if (! $this->expiry_date) {
+            return 0;
+        }
+
+        return (int) now()->startOfDay()->diffInDays(
+            $this->expiry_date instanceof Carbon
+                ? $this->expiry_date->startOfDay()
+                : Carbon::parse($this->expiry_date)->startOfDay(),
+            false,
+        );
+    }
+
     // --- Relationships ---
 
     public function medicine()
@@ -45,12 +62,38 @@ class StockIn extends Model
         return $this->belongsTo(Supplier::class, 'supplier_id', 'supplier_id');
     }
 
-    // --- Fat Model Logic ---
+    // --- Query Scopes & Logic ---
 
-    /**
-     * Handle the entire receiving transaction logic.
-     * Updates the medicine stock, prices, and creates the stock_in record.
-     */
+    public static function getReceivingData()
+    {
+        return [
+            'records' => self::with([
+                'medicine:medicine_id,generic_name,price',
+                'receivedBy:user_id,full_name',
+                'supplier:supplier_id,name',
+            ])
+                ->orderByDesc('recorded_at')
+                ->paginate(15)
+                ->withQueryString(),
+
+            'expiringBatches' => self::with('medicine:medicine_id,generic_name,brand_name')
+                ->where('remaining_quantity', '>', 0)
+                ->whereDate('expiry_date', '>=', now()->toDateString())
+                ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
+                ->orderBy('expiry_date')
+                ->get()
+                ->map(fn ($b) => [
+                    'stock_in_id' => $b->stock_in_id,
+                    'generic_name' => $b->medicine->generic_name ?? '—',
+                    'brand_name' => $b->medicine->brand_name ?? '',
+                    'batch_no' => $b->batch_no,
+                    'expiry_date' => $b->expiry_date,
+                    'remaining_quantity' => $b->remaining_quantity,
+                    'days_left' => (int) now()->diffInDays($b->expiry_date, false),
+                ]),
+        ];
+    }
+
     public static function receiveBatch(array $data, int $userId): self
     {
         return DB::transaction(function () use ($data, $userId) {
@@ -86,11 +129,6 @@ class StockIn extends Model
         });
     }
 
-    /**
-     * Dispose one or more batches (expired or otherwise) in a single transaction.
-     * Shared by Medicine Catalog, Stock Receiving, Stock Dispensing and
-     * Transaction History so the behaviour stays identical everywhere.
-     */
     public static function disposeBatches(array $batchIds, int $userId): void
     {
         DB::transaction(function () use ($batchIds, $userId) {
@@ -100,7 +138,7 @@ class StockIn extends Model
                 Medicine::where('medicine_id', $batch->medicine_id)
                     ->decrement('current_stock', $batch->remaining_quantity);
 
-                StockOut::where('stock_in_id', $batch->stock_in_id)->delete();
+                StockOut::where('stock_in_id', $batch->stock_in_id)->update(['stock_in_id' => null]);
 
                 AuditLog::record(
                     $userId,

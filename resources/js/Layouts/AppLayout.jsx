@@ -1,5 +1,5 @@
-import 'bootstrap/dist/css/bootstrap.min.css';
-import { Link, usePage, Head } from '@inertiajs/react';
+import "bootstrap/dist/css/bootstrap.min.css";
+import { Link, usePage, Head } from "@inertiajs/react";
 
 /**
  * Bootstrap-styled layout, used only by pages that opted into Bootstrap
@@ -20,11 +20,14 @@ export default function AppLayout({ title, children }) {
 
                     <div className="d-flex align-items-center gap-3 small">
                         <span>{auth.user?.full_name}</span>
-                        <Link href={route('profile.edit')} className="text-decoration-none">
+                        <Link
+                            href={route("profile.edit")}
+                            className="text-decoration-none"
+                        >
                             Profile
                         </Link>
                         <Link
-                            href={route('logout')}
+                            href={route("logout")}
                             method="post"
                             as="button"
                             className="btn btn-link btn-sm text-decoration-none p-0"

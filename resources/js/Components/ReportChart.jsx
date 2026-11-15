@@ -1,9 +1,16 @@
 import {
     ResponsiveContainer,
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-    LineChart, Line,
-} from 'recharts';
-import { CHART_COLORS } from '@/lib/chart-palette';
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    Legend,
+    LineChart,
+    Line,
+} from "recharts";
+import { CHART_COLORS } from "@/lib/chart-palette";
 
 const AXIS_PROPS = {
     stroke: CHART_COLORS.charcoal,
@@ -20,16 +27,34 @@ const TOOLTIP_STYLE = {
 
 const LEGEND_STYLE = { fontSize: 12 };
 
-export function ReportBarChart({ data, xKey, yKey, label, color = CHART_COLORS.cherry, height = 260 }) {
+export function ReportBarChart({
+    data,
+    xKey,
+    yKey,
+    label,
+    color = CHART_COLORS.cherry,
+    height = 260,
+}) {
     return (
         <ResponsiveContainer width="100%" height={height}>
-            <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.eggshell} />
+            <BarChart
+                data={data}
+                margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+            >
+                <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke={CHART_COLORS.eggshell}
+                />
                 <XAxis dataKey={xKey} {...AXIS_PROPS} />
                 <YAxis {...AXIS_PROPS} />
                 <Tooltip contentStyle={TOOLTIP_STYLE} />
                 <Legend wrapperStyle={LEGEND_STYLE} />
-                <Bar dataKey={yKey} name={label} fill={color} radius={[6, 6, 0, 0]} />
+                <Bar
+                    dataKey={yKey}
+                    name={label}
+                    fill={color}
+                    radius={[6, 6, 0, 0]}
+                />
             </BarChart>
         </ResponsiveContainer>
     );
@@ -38,8 +63,14 @@ export function ReportBarChart({ data, xKey, yKey, label, color = CHART_COLORS.c
 export function ReportLineChart({ data, xKey, series, height = 260 }) {
     return (
         <ResponsiveContainer width="100%" height={height}>
-            <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.eggshell} />
+            <LineChart
+                data={data}
+                margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+            >
+                <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke={CHART_COLORS.eggshell}
+                />
                 <XAxis dataKey={xKey} {...AXIS_PROPS} />
                 <YAxis {...AXIS_PROPS} />
                 <Tooltip contentStyle={TOOLTIP_STYLE} />

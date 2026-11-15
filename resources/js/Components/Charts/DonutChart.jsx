@@ -1,4 +1,4 @@
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 export function DonutChart({ data, innerRadius = 60, outerRadius = 80 }) {
     return (
@@ -19,8 +19,12 @@ export function DonutChart({ data, innerRadius = 60, outerRadius = 80 }) {
                             <Cell key={`cell-${index}`} fill={entry.fill} />
                         ))}
                     </Pie>
-                    <Tooltip 
-                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                    <Tooltip
+                        contentStyle={{
+                            borderRadius: "12px",
+                            border: "none",
+                            boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+                        }}
                     />
                 </PieChart>
             </ResponsiveContainer>

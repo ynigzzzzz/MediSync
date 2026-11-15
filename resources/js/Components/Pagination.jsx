@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link } from "@inertiajs/react";
 
 /**
  * Shared pagination footer for Laravel length-aware paginators.
@@ -10,7 +10,7 @@ import { Link } from '@inertiajs/react';
  * Usage:
  *   <Pagination meta={medicines} label="medicines" />
  */
-export default function Pagination({ meta, label = 'records' }) {
+export default function Pagination({ meta, label = "records" }) {
     if (!meta || meta.last_page <= 1) return null;
 
     const current = meta.current_page;
@@ -23,17 +23,22 @@ export default function Pagination({ meta, label = 'records' }) {
     const pages = [];
     const window = 1;
     for (let p = 1; p <= last; p++) {
-        if (p === 1 || p === last || (p >= current - window && p <= current + window)) {
+        if (
+            p === 1 ||
+            p === last ||
+            (p >= current - window && p <= current + window)
+        ) {
             pages.push(p);
-        } else if (pages[pages.length - 1] !== '…') {
-            pages.push('…');
+        } else if (pages[pages.length - 1] !== "…") {
+            pages.push("…");
         }
     }
 
     return (
         <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between border-t border-gray-100">
             <p className="text-xs text-gray-500">
-                Showing <span className="font-medium">{from}</span>–<span className="font-medium">{to}</span> of{' '}
+                Showing <span className="font-medium">{from}</span>–
+                <span className="font-medium">{to}</span> of{" "}
                 <span className="font-medium">{total}</span> {label}
             </p>
 
@@ -41,7 +46,7 @@ export default function Pagination({ meta, label = 'records' }) {
                 {/* Previous */}
                 {current > 1 ? (
                     <Link
-                        href={meta.links?.[0]?.url || '#'}
+                        href={meta.links?.[0]?.url || "#"}
                         preserveScroll
                         className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-cherry-blossom hover:text-burnt-rose"
                     >
@@ -55,8 +60,11 @@ export default function Pagination({ meta, label = 'records' }) {
 
                 {/* Numbered pages with ellipsis */}
                 {pages.map((p, i) =>
-                    p === '…' ? (
-                        <span key={`gap-${i}`} className="px-2 text-xs text-gray-400">
+                    p === "…" ? (
+                        <span
+                            key={`gap-${i}`}
+                            className="px-2 text-xs text-gray-400"
+                        >
                             …
                         </span>
                     ) : (
@@ -65,10 +73,10 @@ export default function Pagination({ meta, label = 'records' }) {
                             href={meta.links?.[p]?.url || `?page=${p}`}
                             preserveScroll
                             className={
-                                'min-w-[32px] rounded-lg px-2.5 py-1.5 text-center text-xs font-medium transition-colors ' +
+                                "min-w-[32px] rounded-lg px-2.5 py-1.5 text-center text-xs font-medium transition-colors " +
                                 (p === current
-                                    ? 'bg-cherry-blossom text-charcoal-blue'
-                                    : 'border border-gray-200 text-gray-700 hover:bg-cherry-blossom hover:text-burnt-rose')
+                                    ? "bg-cherry-blossom text-charcoal-blue"
+                                    : "border border-gray-200 text-gray-700 hover:bg-cherry-blossom hover:text-burnt-rose")
                             }
                         >
                             {p}
@@ -79,7 +87,7 @@ export default function Pagination({ meta, label = 'records' }) {
                 {/* Next */}
                 {current < last ? (
                     <Link
-                        href={meta.links?.[meta.links.length - 1]?.url || '#'}
+                        href={meta.links?.[meta.links.length - 1]?.url || "#"}
                         preserveScroll
                         className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-cherry-blossom hover:text-burnt-rose"
                     >

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
 function readDismissed(key) {
     try {
@@ -10,14 +10,20 @@ function readDismissed(key) {
 
 function statusBadge(daysLeft) {
     if (daysLeft < 0) {
-        return { text: `Expired ${Math.abs(daysLeft)} day(s) ago`, cls: 'bg-red-100 text-red-700' };
+        return {
+            text: `Expired ${Math.abs(daysLeft)} day(s) ago`,
+            cls: "bg-red-100 text-red-700",
+        };
     }
     if (daysLeft === 0) {
-        return { text: 'Expires today', cls: 'bg-red-100 text-red-700' };
+        return { text: "Expires today", cls: "bg-red-100 text-red-700" };
     }
     return {
         text: `${daysLeft} day(s) left`,
-        cls: daysLeft <= 30 ? 'bg-orange-100 text-orange-700' : 'bg-amber-100 text-amber-800',
+        cls:
+            daysLeft <= 30
+                ? "bg-orange-100 text-orange-700"
+                : "bg-amber-100 text-amber-800",
     };
 }
 
@@ -30,25 +36,30 @@ function statusBadge(daysLeft) {
  * Dismiss is remembered for the browser session. If the number of expired or
  * expiring batches changes, the warning comes back on its own.
  */
-export default function ExpiryWarning({ data, storageKey = 'expiry-warning' }) {
+export default function ExpiryWarning({ data, storageKey = "expiry-warning" }) {
     const expired = data?.expired ?? [];
     const expiring = data?.expiring ?? [];
     const days = data?.days ?? 60;
     const signature = `${expired.length}:${expiring.length}`;
 
-    const [dismissedSig, setDismissedSig] = useState(() => readDismissed(storageKey));
+    const [dismissedSig, setDismissedSig] = useState(() =>
+        readDismissed(storageKey),
+    );
     const [open, setOpen] = useState(false);
 
     useEffect(() => {
         if (!open) return undefined;
         const onKey = (e) => {
-            if (e.key === 'Escape') setOpen(false);
+            if (e.key === "Escape") setOpen(false);
         };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
     }, [open]);
 
-    if ((expired.length === 0 && expiring.length === 0) || dismissedSig === signature) {
+    if (
+        (expired.length === 0 && expiring.length === 0) ||
+        dismissedSig === signature
+    ) {
         return null;
     }
 
@@ -72,22 +83,32 @@ export default function ExpiryWarning({ data, storageKey = 'expiry-warning' }) {
                     <div className="flex flex-wrap items-center gap-x-3">
                         {expired.length > 0 && (
                             <span className="font-medium text-red-700">
-                                {expired.length} expired batch(es) still in stock.
+                                {expired.length} expired batch(es) still in
+                                stock.
                             </span>
                         )}
                         {expiring.length > 0 && (
                             <span>
-                                {expiring.length} batch(es) expiring within {days} days.
+                                {expiring.length} batch(es) expiring within{" "}
+                                {days} days.
                             </span>
                         )}
                     </div>
                 </div>
 
                 <div className="flex shrink-0 items-center gap-4">
-                    <button type="button" onClick={() => setOpen(true)} className="font-medium underline hover:no-underline">
+                    <button
+                        type="button"
+                        onClick={() => setOpen(true)}
+                        className="font-medium underline hover:no-underline"
+                    >
                         View details
                     </button>
-                    <button type="button" onClick={dismiss} className="font-medium hover:underline">
+                    <button
+                        type="button"
+                        onClick={dismiss}
+                        className="font-medium hover:underline"
+                    >
                         Dismiss
                     </button>
                 </div>
@@ -123,27 +144,50 @@ export default function ExpiryWarning({ data, storageKey = 'expiry-warning' }) {
                             <table className="w-full text-left text-sm">
                                 <thead>
                                     <tr className="border-b">
-                                        <th className="p-2 text-charcoal-blue">Medicine</th>
-                                        <th className="p-2 text-charcoal-blue">Batch</th>
-                                        <th className="p-2 text-charcoal-blue">Expiry</th>
-                                        <th className="p-2 text-charcoal-blue">Qty left</th>
-                                        <th className="p-2 text-charcoal-blue">Status</th>
+                                        <th className="p-2 text-charcoal-blue">
+                                            Medicine
+                                        </th>
+                                        <th className="p-2 text-charcoal-blue">
+                                            Batch
+                                        </th>
+                                        <th className="p-2 text-charcoal-blue">
+                                            Expiry
+                                        </th>
+                                        <th className="p-2 text-charcoal-blue">
+                                            Qty left
+                                        </th>
+                                        <th className="p-2 text-charcoal-blue">
+                                            Status
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {rows.map((b) => {
                                         const badge = statusBadge(b.days_left);
                                         return (
-                                            <tr key={b.stock_in_id} className="border-b last:border-0">
+                                            <tr
+                                                key={b.stock_in_id}
+                                                className="border-b last:border-0"
+                                            >
                                                 <td className="p-2 text-charcoal-blue">
                                                     {b.generic_name}
-                                                    {b.brand_name ? ` (${b.brand_name})` : ''}
+                                                    {b.brand_name
+                                                        ? ` (${b.brand_name})`
+                                                        : ""}
                                                 </td>
-                                                <td className="p-2 text-charcoal-blue">{b.batch_no}</td>
-                                                <td className="p-2 text-charcoal-blue">{b.expiry_date}</td>
-                                                <td className="p-2 text-charcoal-blue">{b.remaining_quantity}</td>
+                                                <td className="p-2 text-charcoal-blue">
+                                                    {b.batch_no}
+                                                </td>
+                                                <td className="p-2 text-charcoal-blue">
+                                                    {b.expiry_date}
+                                                </td>
+                                                <td className="p-2 text-charcoal-blue">
+                                                    {b.remaining_quantity}
+                                                </td>
                                                 <td className="p-2">
-                                                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge.cls}`}>
+                                                    <span
+                                                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge.cls}`}
+                                                    >
                                                         {badge.text}
                                                     </span>
                                                 </td>
@@ -155,7 +199,11 @@ export default function ExpiryWarning({ data, storageKey = 'expiry-warning' }) {
                         </div>
 
                         <div className="flex justify-end gap-3 border-t p-4">
-                            <button type="button" onClick={() => setOpen(false)} className="rounded-md border px-4 py-2 text-sm">
+                            <button
+                                type="button"
+                                onClick={() => setOpen(false)}
+                                className="rounded-md border px-4 py-2 text-sm"
+                            >
                                 Close
                             </button>
                         </div>

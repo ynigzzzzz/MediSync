@@ -1,14 +1,17 @@
-import * as React from 'react';
-import * as RechartsPrimitive from 'recharts';
-import { cn } from '@/lib/utils';
+import * as React from "react";
+import * as RechartsPrimitive from "recharts";
+import { cn } from "@/lib/utils";
 
 const ChartContext = React.createContext({ config: {} });
 
 function ChartContainer({ id, className, children, config = {}, ...props }) {
     return (
         <ChartContext.Provider value={{ config }}>
-            <div className={cn('w-full text-xs', className)} {...props}>
-                <RechartsPrimitive.ResponsiveContainer width="100%" height="100%">
+            <div className={cn("w-full text-xs", className)} {...props}>
+                <RechartsPrimitive.ResponsiveContainer
+                    width="100%"
+                    height="100%"
+                >
                     {children}
                 </RechartsPrimitive.ResponsiveContainer>
             </div>
@@ -16,10 +19,21 @@ function ChartContainer({ id, className, children, config = {}, ...props }) {
     );
 }
 
-function ChartTooltipContent({ active, payload, label, labelFormatter, className }) {
+function ChartTooltipContent({
+    active,
+    payload,
+    label,
+    labelFormatter,
+    className,
+}) {
     if (!active || !payload?.length) return null;
     return (
-        <div className={cn('rounded-lg border border-eggshell bg-white px-3 py-2 text-xs shadow-lg', className)}>
+        <div
+            className={cn(
+                "rounded-lg border border-eggshell bg-white px-3 py-2 text-xs shadow-lg",
+                className,
+            )}
+        >
             {label && (
                 <p className="font-medium text-charcoal-blue mb-1">
                     {labelFormatter ? labelFormatter(label) : label}

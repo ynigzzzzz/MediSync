@@ -1,63 +1,76 @@
-import { useState } from 'react';
-import { Head, useForm } from '@inertiajs/react';
+import { useState } from "react";
+import { Head, useForm } from "@inertiajs/react";
 
 /* ───────────────────────── Static data (edit freely) ───────────────────────── */
 
 // Background pill tray
 const WELLS = Array.from({ length: 250 }, (_, i) => i);
-const PILL_TILTS = ['rotate-12', '-rotate-45', 'rotate-45', '-rotate-12', 'rotate-90', '-rotate-[15deg]'];
+const PILL_TILTS = [
+    "rotate-12",
+    "-rotate-45",
+    "rotate-45",
+    "-rotate-12",
+    "rotate-90",
+    "-rotate-[15deg]",
+];
 const hasPill = (i) => (i * 17 + 7) % 11 === 0;
 
 // Team section. Add or remove people here.
 const TEAM = [
-    { name: 'Ynigo Panisa', role: 'Project Leader · Developer' },
-    { name: 'Marinel Delima', role: 'Designer' },
-    { name: 'Xyza Paz', role: 'Technical Writer · System Analyst' },
-    { name: 'Dahn Gabutero', role: 'Database Administrator' },
-    { name: 'Renji Chatto', role: 'Systems Administrator' },
-    { name: 'Faith Magoncia', role: 'Contributor' },
+    { name: "Ynigo Panisa", role: "Project Leader · Developer" },
+    { name: "Marinel Delima", role: "Designer" },
+    { name: "Xyza Paz", role: "Technical Writer · System Analyst" },
+    { name: "Dahn Gabutero", role: "Database Administrator" },
+    { name: "Renji Chatto", role: "Systems Administrator" },
+    { name: "Faith Magoncia", role: "Contributor" },
 ];
 
 const initials = (name) =>
     name
-        .split(' ')
+        .split(" ")
         .map((part) => part[0])
-        .join('')
+        .join("")
         .slice(0, 2)
         .toUpperCase();
 
 /* ───────────────────────── Shared class strings ───────────────────────── */
 
 const inputClass =
-    'w-full rounded-xl border border-transparent bg-[#F2F2F7] py-3.5 text-[16px] text-gray-900 outline-none ' +
-    'transition-all duration-300 placeholder:text-gray-400 ' +
-    'focus:border-[#FF4D79] focus:bg-white focus:ring-4 focus:ring-[#FF4D79]/20';
+    "w-full rounded-xl border border-transparent bg-[#F2F2F7] py-3.5 text-[16px] text-gray-900 outline-none " +
+    "transition-all duration-300 placeholder:text-gray-400 " +
+    "focus:border-[#FF4D79] focus:bg-white focus:ring-4 focus:ring-[#FF4D79]/20";
 
 const primaryButtonClass =
-    'mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-[#FF4D79] py-4 text-[16px] font-semibold text-white ' +
-    'shadow-[0_8px_20px_-6px_rgba(255,77,121,0.6)] transition-all duration-300 ' +
-    'hover:-translate-y-0.5 hover:bg-[#E63E66] hover:shadow-[0_10px_25px_-6px_rgba(255,77,121,0.8)] ' +
-    'active:translate-y-0 disabled:opacity-50 disabled:hover:translate-y-0';
+    "mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-[#FF4D79] py-4 text-[16px] font-semibold text-white " +
+    "shadow-[0_8px_20px_-6px_rgba(255,77,121,0.6)] transition-all duration-300 " +
+    "hover:-translate-y-0.5 hover:bg-[#E63E66] hover:shadow-[0_10px_25px_-6px_rgba(255,77,121,0.8)] " +
+    "active:translate-y-0 disabled:opacity-50 disabled:hover:translate-y-0";
 
 /* ───────────────────────── Small components ───────────────────────── */
 
-function Pill({ className = '' }) {
+function Pill({ className = "" }) {
     return (
-        <span className={`flex h-3 w-7 overflow-hidden rounded-full border border-white/20 shadow-sm ${className}`}>
+        <span
+            className={`flex h-3 w-7 overflow-hidden rounded-full border border-white/20 shadow-sm ${className}`}
+        >
             <span className="w-1/2 bg-white" />
             <span className="w-1/2 bg-[#FF4D79]" />
         </span>
     );
 }
 
-function Banner({ tone = 'error', children }) {
+function Banner({ tone = "error", children }) {
     const styles =
-        tone === 'success'
-            ? 'border-green-100 bg-green-50 text-green-700'
-            : 'border-red-100 bg-red-50 text-red-600';
-    const icon = tone === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation';
+        tone === "success"
+            ? "border-green-100 bg-green-50 text-green-700"
+            : "border-red-100 bg-red-50 text-red-600";
+    const icon =
+        tone === "success" ? "fa-circle-check" : "fa-circle-exclamation";
     return (
-        <div role="alert" className={`mb-6 flex items-start gap-2 rounded-xl border px-4 py-3 text-sm font-medium ${styles}`}>
+        <div
+            role="alert"
+            className={`mb-6 flex items-start gap-2 rounded-xl border px-4 py-3 text-sm font-medium ${styles}`}
+        >
             <i className={`fas ${icon} mt-0.5`} />
             <span>{children}</span>
         </div>
@@ -67,14 +80,14 @@ function Banner({ tone = 'error', children }) {
 /* ───────────────────────── Page ───────────────────────── */
 
 export default function Login({ status, canResetPassword = true }) {
-    const [mode, setMode] = useState('signin');
+    const [mode, setMode] = useState("signin");
     const [showPassword, setShowPassword] = useState(false);
     const [resetSent, setResetSent] = useState(false); // <-- ADDED: Success state
 
-    const form = useForm({ email: '', password: '' });
-    const resetForm = useForm({ email: '' });
+    const form = useForm({ email: "", password: "" });
+    const resetForm = useForm({ email: "" });
 
-    const signingIn = mode === 'signin';
+    const signingIn = mode === "signin";
 
     const switchMode = (next) => {
         form.clearErrors();
@@ -85,13 +98,13 @@ export default function Login({ status, canResetPassword = true }) {
 
     const submit = (e) => {
         e.preventDefault();
-        form.post(route('login'), { onFinish: () => form.reset('password') });
+        form.post(route("login"), { onFinish: () => form.reset("password") });
     };
 
     const submitReset = (e) => {
         e.preventDefault();
         // <-- ADDED: onSuccess handler to trigger the success screen
-        resetForm.post(route('password.email'), {
+        resetForm.post(route("password.email"), {
             onSuccess: () => setResetSent(true),
         });
     };
@@ -106,7 +119,6 @@ export default function Login({ status, canResetPassword = true }) {
 
             {/* ═════════════════════ LOGIN CARD ═════════════════════ */}
             <div className="relative z-10 flex h-[85vh] min-h-[650px] w-full max-w-[1500px] shrink-0 overflow-hidden rounded-[32px] border border-white/60 bg-white shadow-[0_20px_60px_-15px_rgba(0,0,0,0.12)] ring-1 ring-black/5">
-
                 {/* Left: hero */}
                 <div className="group relative hidden flex-col justify-between overflow-hidden p-12 lg:flex lg:w-[58%] xl:p-16">
                     <div className="absolute inset-0 bg-gradient-to-bl from-[#FFB7CE] via-[#FF8FAB] to-[#FF4D79] transition-transform duration-1000 ease-out group-hover:scale-110">
@@ -136,7 +148,9 @@ export default function Login({ status, canResetPassword = true }) {
                             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md border border-white/40 text-white">
                                 <i className="fas fa-prescription-bottle-medical text-xl" />
                             </span>
-                            <span className="text-2xl font-bold tracking-tight text-white">MediSync</span>
+                            <span className="text-2xl font-bold tracking-tight text-white">
+                                MediSync
+                            </span>
                         </div>
 
                         {/* Message */}
@@ -147,9 +161,10 @@ export default function Login({ status, canResetPassword = true }) {
                                 precision.
                             </h2>
                             <p className="text-white text-lg max-w-md font-medium leading-relaxed">
-                                Track inventory, monitor stock levels, and streamline daily operations — all in one smart system.
+                                Track inventory, monitor stock levels, and
+                                streamline daily operations — all in one smart
+                                system.
                             </p>
-
                         </div>
                     </div>
                 </div>
@@ -161,7 +176,9 @@ export default function Login({ status, canResetPassword = true }) {
                         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#FFB7CE] to-[#FF4D79] text-white shadow-lg">
                             <i className="fas fa-prescription-bottle-medical" />
                         </span>
-                        <span className="text-xl font-bold text-gray-900">MediSync</span>
+                        <span className="text-xl font-bold text-gray-900">
+                            MediSync
+                        </span>
                     </div>
 
                     <div className="mx-auto w-full max-w-sm">
@@ -171,13 +188,16 @@ export default function Login({ status, canResetPassword = true }) {
                                 <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-success-green/10">
                                     <i className="fas fa-envelope-circle-check text-4xl text-success-green" />
                                 </div>
-                                <h2 className="mb-2 text-3xl font-bold tracking-tight text-gray-900">Check your inbox</h2>
+                                <h2 className="mb-2 text-3xl font-bold tracking-tight text-gray-900">
+                                    Check your inbox
+                                </h2>
                                 <p className="mb-8 text-[15px] text-gray-500">
-                                    We've sent a secure password reset link to your email address.
+                                    We've sent a secure password reset link to
+                                    your email address.
                                 </p>
                                 <button
                                     type="button"
-                                    onClick={() => switchMode('signin')}
+                                    onClick={() => switchMode("signin")}
                                     className={primaryButtonClass}
                                 >
                                     Back to Sign In
@@ -190,22 +210,34 @@ export default function Login({ status, canResetPassword = true }) {
                                         Pharmacy Inventory System
                                     </p>
                                     <h1 className="mb-2 text-3xl font-bold tracking-tight text-gray-900">
-                                        {signingIn ? 'Welcome back' : 'Reset password'}
+                                        {signingIn
+                                            ? "Welcome back"
+                                            : "Reset password"}
                                     </h1>
                                     <p className="text-[15px] text-gray-500">
                                         {signingIn
-                                            ? 'Enter your credentials to access your account.'
+                                            ? "Enter your credentials to access your account."
                                             : "Enter your email and we'll send you a secure reset link."}
                                     </p>
                                 </div>
 
-                                {status && <Banner tone="success">{status}</Banner>}
-                                {signingIn && form.errors.email && <Banner>{form.errors.email}</Banner>}
+                                {status && (
+                                    <Banner tone="success">{status}</Banner>
+                                )}
+                                {signingIn && form.errors.email && (
+                                    <Banner>{form.errors.email}</Banner>
+                                )}
 
                                 {signingIn ? (
-                                    <form onSubmit={submit} className="space-y-5">
+                                    <form
+                                        onSubmit={submit}
+                                        className="space-y-5"
+                                    >
                                         <div className="space-y-1.5">
-                                            <label htmlFor="email" className="text-[13px] font-medium text-gray-700">
+                                            <label
+                                                htmlFor="email"
+                                                className="text-[13px] font-medium text-gray-700"
+                                            >
                                                 Email address
                                             </label>
                                             <div className="relative">
@@ -219,7 +251,12 @@ export default function Login({ status, canResetPassword = true }) {
                                                     autoFocus
                                                     required
                                                     value={form.data.email}
-                                                    onChange={(e) => form.setData('email', e.target.value)}
+                                                    onChange={(e) =>
+                                                        form.setData(
+                                                            "email",
+                                                            e.target.value,
+                                                        )
+                                                    }
                                                     className={`${inputClass} pl-11 pr-4`}
                                                     placeholder="admin@medisync.test"
                                                 />
@@ -228,13 +265,18 @@ export default function Login({ status, canResetPassword = true }) {
 
                                         <div className="space-y-1.5">
                                             <div className="flex items-center justify-between">
-                                                <label htmlFor="password" className="text-[13px] font-medium text-gray-700">
+                                                <label
+                                                    htmlFor="password"
+                                                    className="text-[13px] font-medium text-gray-700"
+                                                >
                                                     Password
                                                 </label>
                                                 {canResetPassword && (
                                                     <button
                                                         type="button"
-                                                        onClick={() => switchMode('reset')}
+                                                        onClick={() =>
+                                                            switchMode("reset")
+                                                        }
                                                         className="text-[13px] font-medium text-[#FF4D79] transition-colors hover:text-gray-900"
                                                     >
                                                         Forgot password?
@@ -247,40 +289,74 @@ export default function Login({ status, canResetPassword = true }) {
                                                 </span>
                                                 <input
                                                     id="password"
-                                                    type={showPassword ? 'text' : 'password'}
+                                                    type={
+                                                        showPassword
+                                                            ? "text"
+                                                            : "password"
+                                                    }
                                                     autoComplete="current-password"
                                                     required
                                                     value={form.data.password}
-                                                    onChange={(e) => form.setData('password', e.target.value)}
+                                                    onChange={(e) =>
+                                                        form.setData(
+                                                            "password",
+                                                            e.target.value,
+                                                        )
+                                                    }
                                                     className={`${inputClass} pl-11 pr-12`}
                                                     placeholder="••••••••"
                                                 />
                                                 <button
                                                     type="button"
-                                                    onClick={() => setShowPassword(!showPassword)}
-                                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                                    onClick={() =>
+                                                        setShowPassword(
+                                                            !showPassword,
+                                                        )
+                                                    }
+                                                    aria-label={
+                                                        showPassword
+                                                            ? "Hide password"
+                                                            : "Show password"
+                                                    }
                                                     className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 transition-colors hover:text-gray-900 focus:outline-none"
                                                 >
-                                                    <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`} />
+                                                    <i
+                                                        className={`fas ${showPassword ? "fa-eye-slash" : "fa-eye"}`}
+                                                    />
                                                 </button>
                                             </div>
-                                            {form.errors.password && <p className="mt-1 text-xs text-red-500">{form.errors.password}</p>}
+                                            {form.errors.password && (
+                                                <p className="mt-1 text-xs text-red-500">
+                                                    {form.errors.password}
+                                                </p>
+                                            )}
                                         </div>
 
-                                        <button type="submit" disabled={form.processing} className={primaryButtonClass}>
+                                        <button
+                                            type="submit"
+                                            disabled={form.processing}
+                                            className={primaryButtonClass}
+                                        >
                                             {form.processing ? (
                                                 <>
-                                                    <i className="fas fa-circle-notch fa-spin" /> Signing in...
+                                                    <i className="fas fa-circle-notch fa-spin" />{" "}
+                                                    Signing in...
                                                 </>
                                             ) : (
-                                                'Sign In'
+                                                "Sign In"
                                             )}
                                         </button>
                                     </form>
                                 ) : (
-                                    <form onSubmit={submitReset} className="space-y-5">
+                                    <form
+                                        onSubmit={submitReset}
+                                        className="space-y-5"
+                                    >
                                         <div className="space-y-1.5">
-                                            <label htmlFor="reset-email" className="text-[13px] font-medium text-gray-700">
+                                            <label
+                                                htmlFor="reset-email"
+                                                className="text-[13px] font-medium text-gray-700"
+                                            >
                                                 Email address
                                             </label>
                                             <div className="relative">
@@ -294,31 +370,46 @@ export default function Login({ status, canResetPassword = true }) {
                                                     autoFocus
                                                     required
                                                     value={resetForm.data.email}
-                                                    onChange={(e) => resetForm.setData('email', e.target.value)}
+                                                    onChange={(e) =>
+                                                        resetForm.setData(
+                                                            "email",
+                                                            e.target.value,
+                                                        )
+                                                    }
                                                     className={`${inputClass} pl-11 pr-4`}
                                                     placeholder="admin@medisync.test"
                                                 />
                                             </div>
-                                            {resetForm.errors.email && <p className="mt-1 text-xs text-red-500">{resetForm.errors.email}</p>}
+                                            {resetForm.errors.email && (
+                                                <p className="mt-1 text-xs text-red-500">
+                                                    {resetForm.errors.email}
+                                                </p>
+                                            )}
                                         </div>
 
-                                        <button type="submit" disabled={resetForm.processing} className={primaryButtonClass}>
-                                            {resetForm.processing ? 'Sending...' : 'Send reset link'}
+                                        <button
+                                            type="submit"
+                                            disabled={resetForm.processing}
+                                            className={primaryButtonClass}
+                                        >
+                                            {resetForm.processing
+                                                ? "Sending..."
+                                                : "Send reset link"}
                                         </button>
 
                                         <button
                                             type="button"
-                                            onClick={() => switchMode('signin')}
+                                            onClick={() => switchMode("signin")}
                                             className="w-full py-2 text-center text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
                                         >
-                                            <i className="fas fa-arrow-left mr-1.5" /> Back to sign in
+                                            <i className="fas fa-arrow-left mr-1.5" />{" "}
+                                            Back to sign in
                                         </button>
                                     </form>
                                 )}
                             </>
                         )}
                     </div>
-
                 </div>
             </div>
 
@@ -333,7 +424,7 @@ export default function Login({ status, canResetPassword = true }) {
                         src="/images/group-photo.jpg"
                         alt="The MediSync team"
                         className="absolute inset-0 h-full w-full object-cover"
-                        onError={(e) => e.currentTarget.classList.add('hidden')}
+                        onError={(e) => e.currentTarget.classList.add("hidden")}
                     />
                     <span className="absolute bottom-4 left-4 inline-flex items-center gap-2 rounded-full border border-white/50 bg-white/30 px-4 py-2 text-sm font-semibold text-white shadow-lg backdrop-blur-md">
                         <i className="fas fa-heart text-xs" /> The MediSync team
@@ -343,12 +434,17 @@ export default function Login({ status, canResetPassword = true }) {
                 {/* Text and team grid */}
                 <div className="flex flex-col justify-center px-1 py-2 md:px-6">
                     <div className="mb-6 h-1 w-16 rounded-full bg-[#FF4D79]" />
-                    <h2 className="mb-4 text-4xl font-bold tracking-tight text-gray-900">Meet the Team</h2>
+                    <h2 className="mb-4 text-4xl font-bold tracking-tight text-gray-900">
+                        Meet the Team
+                    </h2>
                     <p className="mb-8 text-[17px] leading-relaxed text-gray-600">
-                        MediSync was built by a team that cares about precision and modern design in pharmacy management.
+                        MediSync was built by a team that cares about precision
+                        and modern design in pharmacy management.
                     </p>
 
-                    <p className="mb-4 text-[12px] font-bold uppercase tracking-[0.2em] text-[#FF4D79]">Contributors</p>
+                    <p className="mb-4 text-[12px] font-bold uppercase tracking-[0.2em] text-[#FF4D79]">
+                        Contributors
+                    </p>
                     <ul className="grid gap-3 sm:grid-cols-2">
                         {TEAM.map((m) => (
                             <li
@@ -359,8 +455,12 @@ export default function Login({ status, canResetPassword = true }) {
                                     {initials(m.name)}
                                 </span>
                                 <span className="min-w-0">
-                                    <span className="block truncate font-semibold text-gray-900">{m.name}</span>
-                                    <span className="block text-[13px] leading-snug text-gray-500">{m.role}</span>
+                                    <span className="block truncate font-semibold text-gray-900">
+                                        {m.name}
+                                    </span>
+                                    <span className="block text-[13px] leading-snug text-gray-500">
+                                        {m.role}
+                                    </span>
                                 </span>
                             </li>
                         ))}

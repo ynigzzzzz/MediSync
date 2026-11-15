@@ -1,6 +1,6 @@
-import { forwardRef } from 'react';
-import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { cn } from '@/lib/utils';
+import { forwardRef } from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { cn } from "@/lib/utils";
 
 const Dialog = DialogPrimitive.Root;
 const DialogTrigger = DialogPrimitive.Trigger;
@@ -11,7 +11,7 @@ const DialogOverlay = forwardRef(({ className, ...props }, ref) => (
     <DialogPrimitive.Overlay
         ref={ref}
         className={cn(
-            'fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=closed]:animate-out',
+            "fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=closed]:animate-out",
             className,
         )}
         {...props}
@@ -25,8 +25,8 @@ const DialogContent = forwardRef(({ className, children, ...props }, ref) => (
         <DialogPrimitive.Content
             ref={ref}
             className={cn(
-                'fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-[15px] border border-eggshell bg-white p-6 shadow-lg',
-                'data-[state=open]:animate-in data-[state=closed]:animate-out',
+                "fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-[15px] border border-eggshell bg-white p-6 shadow-lg",
+                "data-[state=open]:animate-in data-[state=closed]:animate-out",
                 className,
             )}
             {...props}
@@ -42,20 +42,31 @@ const DialogContent = forwardRef(({ className, children, ...props }, ref) => (
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 const DialogHeader = ({ className, ...props }) => (
-    <div className={cn('flex flex-col space-y-1.5 text-left mb-4', className)} {...props} />
+    <div
+        className={cn("flex flex-col space-y-1.5 text-left mb-4", className)}
+        {...props}
+    />
 );
 
 const DialogFooter = ({ className, ...props }) => (
-    <div className={cn('flex justify-end gap-2 mt-6', className)} {...props} />
+    <div className={cn("flex justify-end gap-2 mt-6", className)} {...props} />
 );
 
 const DialogTitle = forwardRef(({ className, ...props }, ref) => (
-    <DialogPrimitive.Title ref={ref} className={cn('text-lg font-semibold text-charcoal-blue', className)} {...props} />
+    <DialogPrimitive.Title
+        ref={ref}
+        className={cn("text-lg font-semibold text-charcoal-blue", className)}
+        {...props}
+    />
 ));
 DialogTitle.displayName = DialogPrimitive.Title.displayName;
 
 const DialogDescription = forwardRef(({ className, ...props }, ref) => (
-    <DialogPrimitive.Description ref={ref} className={cn('text-sm text-charcoal-blue opacity-70', className)} {...props} />
+    <DialogPrimitive.Description
+        ref={ref}
+        className={cn("text-sm text-charcoal-blue opacity-70", className)}
+        {...props}
+    />
 ));
 DialogDescription.displayName = DialogPrimitive.Description.displayName;
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\DeleteUserRequest;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Models\AuditLog;
@@ -17,19 +18,9 @@ class UserManagementController extends Controller
     {
         abort_unless($request->user()->role === 'admin', 403);
 
-        $users = User::query()
-            ->filter($request->only('search', 'role'))
-            ->orderBy('full_name')
-            ->paginate(15)
-            ->withQueryString();
-
         return Inertia::render('UserManagement/Index', [
-            'users' => $users,
-            'stats' => [
-                'activeUsers' => User::where('status', 'active')->count(),
-                'inactiveUsers' => User::where('status', 'inactive')->count(),
-                'adminCount' => User::where('role', 'admin')->count(),
-            ],
+            'users' => User::getIndexData($request->only('search', 'role')),
+            'stats' => User::getStats(),
             'filters' => [
                 'search' => $request->query('search', ''),
                 'role' => $request->query('role', 'all'),
@@ -52,7 +43,7 @@ class UserManagementController extends Controller
             'role' => $validated['role'],
             'status' => $validated['status'],
             'profile_image' => $validated['profile_image'] ?? null,
-            'must_change_password' => true, // <-- FIXED: Comma instead of semicolon
+            'must_change_password' => true,
         ]);
 
         AuditLog::record(
@@ -78,7 +69,7 @@ class UserManagementController extends Controller
 
         if (! empty($validated['password'])) {
             $validated['password_hash'] = Hash::make($validated['password']);
-            $validated['must_change_password'] = true; // Admin typed a new temp password
+            $validated['must_change_password'] = true;
         }
         unset($validated['password']);
 
@@ -114,10 +105,8 @@ class UserManagementController extends Controller
         return back()->with('success', "User status changed to {$newStatus}.");
     }
 
-    public function destroy(Request $request, User $user)
+    public function destroy(DeleteUserRequest $request, User $user)
     {
-        abort_unless($request->user()->role === 'admin', 403);
-
         if ($user->user_id === $request->user()->user_id) {
             return back()->withErrors(['message' => 'You cannot delete your own account.']);
         }
@@ -130,6 +119,8 @@ class UserManagementController extends Controller
             $request->user()->user_id,
             'DELETE_USER',
             "Deleted user: {$name} (ID {$id})",
+            null,
+            $request->validated('reason'),
         );
 
         return back()->with('success', 'User deleted successfully.');

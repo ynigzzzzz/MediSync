@@ -23,7 +23,6 @@ class ContactSupportRequest extends Mailable
     {
         return new Envelope(
             subject: "[MediSync Support] {$this->inquiryLabel}: {$this->contactMessage->subject}",
-            // ⚠️ Make sure replyTo is correctly formatted
             replyTo: [
                 $this->contactMessage->email => $this->contactMessage->full_name,
             ],

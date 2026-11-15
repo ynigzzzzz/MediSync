@@ -39,9 +39,6 @@ class Medicine extends Model
 
     // --- Query Scopes & Logic ---
 
-    /**
-     * Apply the "Low Stock" or "Out of Stock" filter.
-     */
     public function scopeFilterStatus($query, string $filter)
     {
         if ($filter === 'lowstock') {
@@ -53,17 +50,20 @@ class Medicine extends Model
         return $query;
     }
 
-    /**
-     * Get the counts for the stat cards on the catalog page.
-     */
     public static function getStats(): array
     {
+        $today = now()->toDateString();
+
         return [
             'total' => self::count(),
             'lowstock' => self::whereBetween('current_stock', [1, 49])->count(),
             'outofstock' => self::where('current_stock', 0)->count(),
             'expiring' => StockIn::where('remaining_quantity', '>', 0)
+                ->whereDate('expiry_date', '>=', $today)
                 ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
+                ->count(),
+            'expired' => StockIn::where('remaining_quantity', '>', 0)
+                ->whereDate('expiry_date', '<', $today)
                 ->count(),
             'categories' => self::whereNotNull('category')->where('category', '!=', '')->distinct()->pluck('category'),
             'types' => self::whereNotNull('type')->where('type', '!=', '')->distinct()->pluck('type'),
@@ -71,12 +71,88 @@ class Medicine extends Model
     }
 
     /**
-     * The FEFO (First-Expired, First-Out) Dispensing Algorithm.
-     * Handles locking, batch deduction, and stock creation.
+     * Get the data needed for the catalog index page based on the filter.
      */
-    public function dispense(int $quantityNeeded, ?float $requestedPrice, ?string $dosage, string $patientName, string $prescriptionNo, int $userId): float
+    public static function getCatalogData(string $filter)
     {
-        // 1. Check unexpired stock
+        $today = now()->toDateString();
+        $allowedFilters = ['lowstock', 'outofstock', 'expiring', 'expired'];
+
+        if (! in_array($filter, $allowedFilters, true)) {
+            $filter = 'all';
+        }
+
+        if ($filter === 'expiring') {
+            return [
+                'medicines' => collect(),
+                'expiringBatches' => StockIn::with('medicine:medicine_id,generic_name,brand_name')
+                    ->where('remaining_quantity', '>', 0)
+                    ->whereDate('expiry_date', '>=', $today)
+                    ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
+                    ->orderBy('expiry_date')
+                    ->paginate(15)
+                    ->withQueryString(),
+            ];
+        }
+
+        if ($filter === 'expired') {
+            return [
+                'medicines' => collect(),
+                'expiringBatches' => StockIn::with('medicine:medicine_id,generic_name,brand_name')
+                    ->where('remaining_quantity', '>', 0)
+                    ->whereDate('expiry_date', '<', $today)
+                    ->orderBy('expiry_date')
+                    ->paginate(15)
+                    ->withQueryString(),
+            ];
+        }
+
+        return [
+            'medicines' => self::query()
+                ->filterStatus($filter)
+                ->orderBy('generic_name')
+                ->paginate(15)
+                ->withQueryString(),
+            'expiringBatches' => null,
+        ];
+    }
+
+    /**
+     * Generate the "Needs Attention" alerts for the catalog page.
+     */
+    public static function getAttentionAlerts(): array
+    {
+        $stats = self::getStats();
+        $attention = [];
+
+        if ($stats['outofstock'] > 0) {
+            $attention[] = ['type' => 'danger', 'icon' => 'fa-circle-xmark', 'message' => "{$stats['outofstock']} medicine(s) out of stock", 'link' => '/medicine-list?filter=outofstock'];
+        }
+        if ($stats['lowstock'] > 0) {
+            $attention[] = ['type' => 'warning', 'icon' => 'fa-triangle-exclamation', 'message' => "{$stats['lowstock']} medicine(s) low on stock", 'link' => '/medicine-list?filter=lowstock'];
+        }
+        if ($stats['expiring'] > 0) {
+            $attention[] = ['type' => 'warning', 'icon' => 'fa-hourglass-half', 'message' => "{$stats['expiring']} batch(es) expiring within 30 days", 'link' => '/medicine-list?filter=expiring'];
+        }
+        if ($stats['expired'] > 0) {
+            $attention[] = ['type' => 'danger', 'icon' => 'fa-ban', 'message' => "{$stats['expired']} expired batch(es) still in stock", 'link' => '/medicine-list?filter=expired'];
+        }
+
+        return $attention;
+    }
+
+    /**
+     * FEFO (First-Expired, First-Out) dispensing.
+     * Must be called inside a DB::transaction — see StockDispensingController.
+     */
+    public function dispense(
+        int $quantityNeeded,
+        ?float $requestedPrice,
+        ?string $dosage,
+        string $patientName,
+        string $prescriptionNo,
+        int $userId,
+    ): float {
         $unexpiredTotal = $this->stockIn()
             ->where('expiry_date', '>=', now()->toDateString())
             ->where('remaining_quantity', '>', 0)
@@ -91,11 +167,10 @@ class Medicine extends Model
             throw new \Exception("Insufficient total stock for '{$this->generic_name}'. Requested {$quantityNeeded}, available {$this->current_stock}.");
         }
 
-        $finalPrice = $requestedPrice > 0 ? $requestedPrice : $this->price;
+        $finalPrice = ($requestedPrice !== null && $requestedPrice > 0) ? $requestedPrice : (float) $this->price;
         $remaining = $quantityNeeded;
         $itemTotal = 0;
 
-        // 2. FEFO Loop
         while ($remaining > 0) {
             $batch = $this->stockIn()
                 ->where('remaining_quantity', '>', 0)
@@ -126,7 +201,6 @@ class Medicine extends Model
             $remaining -= $take;
         }
 
-        // 3. Deduct total from medicine
         $this->decrement('current_stock', $quantityNeeded);
 
         return $itemTotal;
