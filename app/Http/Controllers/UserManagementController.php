@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\DB;
 
 class UserManagementController extends Controller
 {
@@ -105,24 +106,33 @@ class UserManagementController extends Controller
         return back()->with('success', "User status changed to {$newStatus}.");
     }
 
-    public function destroy(DeleteUserRequest $request, User $user)
-    {
-        if ($user->user_id === $request->user()->user_id) {
-            return back()->withErrors(['message' => 'You cannot delete your own account.']);
-        }
+    public function destroy(Request $request, User $user)
+{
+    abort_unless($request->user()->role === 'admin', 403);
 
-        $name = $user->full_name;
-        $id = $user->user_id;
-        $user->delete();
-
-        AuditLog::record(
-            $request->user()->user_id,
-            'DELETE_USER',
-            "Deleted user: {$name} (ID {$id})",
-            null,
-            $request->validated('reason'),
-        );
-
-        return back()->with('success', 'User deleted successfully.');
+    if ($user->user_id === $request->user()->user_id) {
+        return back()->withErrors(['message' => 'You cannot delete your own account.']);
     }
+
+    $hasActivity = DB::table('stock_out')->where('dispensed_by', $user->user_id)->exists()
+        || DB::table('stock_in')->where('received_by', $user->user_id)->exists();
+
+    if ($hasActivity) {
+        return back()->withErrors([
+            'message' => "Cannot delete {$user->full_name} — they have transaction history. Deactivate the account instead.",
+        ]);
+    }
+
+    $name = $user->full_name;
+    $id = $user->user_id;
+    $user->delete();
+
+    AuditLog::record(
+        $request->user()->user_id,
+        'DELETE_USER',
+        "Deleted user: {$name} (ID {$id})"
+    );
+
+    return back()->with('success', 'User deleted successfully.');
+}
 }

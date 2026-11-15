@@ -60,12 +60,4 @@ class TransactionHistoryController extends Controller
 
         return back()->with('success', 'Selected batches disposed.');
     }
-
-    public function print(Request $request)
-    {
-        $filters = $request->only(['search', 'type', 'date_from', 'date_to', 'user']);
-        $rows = StockOut::getTransactionHistory($filters)->orderByDesc('date_time')->get();
-
-        return view('transaction_history_print', compact('rows', 'filters'));
-    }
 }

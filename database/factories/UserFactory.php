@@ -20,20 +20,9 @@ class UserFactory extends Factory
             'full_name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'password_hash' => static::$password ??= Hash::make('password'),
-            'role' => 'assistant',
+            'role' => 'pharmacist',
             'status' => 'active',
-            'must_change_password' => false,
             'remember_token' => Str::random(10),
         ];
-    }
-
-    public function admin(): static
-    {
-        return $this->state(fn () => ['role' => 'admin']);
-    }
-
-    public function inactive(): static
-    {
-        return $this->state(fn () => ['status' => 'inactive']);
     }
 }
