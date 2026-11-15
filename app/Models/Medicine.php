@@ -50,25 +50,25 @@ class Medicine extends Model
         return $query;
     }
 
-    public static function getStats(): array
-    {
-        $today = now()->toDateString();
+   public static function getStats(): array
+{
+    $today = now()->toDateString();
 
-        return [
-            'total' => self::count(),
-            'lowstock' => self::whereBetween('current_stock', [1, 49])->count(),
-            'outofstock' => self::where('current_stock', 0)->count(),
-            'expiring' => StockIn::where('remaining_quantity', '>', 0)
-                ->whereDate('expiry_date', '>=', $today)
-                ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
-                ->count(),
-            'expired' => StockIn::where('remaining_quantity', '>', 0)
-                ->whereDate('expiry_date', '<', $today)
-                ->count(),
-            'categories' => self::whereNotNull('category')->where('category', '!=', '')->distinct()->pluck('category'),
-            'types' => self::whereNotNull('type')->where('type', '!=', '')->distinct()->pluck('type'),
-        ];
-    }
+    return [
+        'total' => self::count(),
+        'lowstock' => self::whereBetween('current_stock', [1, 49])->count(),
+        'outofstock' => self::where('current_stock', 0)->count(),
+        'expiring' => StockIn::where('remaining_quantity', '>', 0)
+            ->whereDate('expiry_date', '>=', $today)
+            ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
+            ->count(),
+        'expired' => StockIn::where('remaining_quantity', '>', 0)
+            ->whereDate('expiry_date', '<', $today)
+            ->count(),
+        'categories' => self::whereNotNull('category')->where('category', '!=', '')->distinct()->pluck('category'),
+        'types' => self::whereNotNull('type')->where('type', '!=', '')->distinct()->pluck('type'),
+    ];
+}
 
     public static function getCatalogData(string $filter, string $search = '', string $category = '', string $type = '')
     {

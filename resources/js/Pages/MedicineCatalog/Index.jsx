@@ -8,7 +8,7 @@ import AddMedicineForm from './Partials/AddMedicineForm';
 import MedicineTables from './Partials/MedicineTables';
 
 export default function Index({ medicines, batches, stats, activeFilter, attention = [], filters = {} }) {
-    const { auth } = usePage().props;
+    const { auth, errors } = usePage().props;
     const canEdit = auth.user.role !== 'assistant';
 
     const [showAddForm, setShowAddForm] = useState(false);
@@ -72,7 +72,7 @@ export default function Index({ medicines, batches, stats, activeFilter, attenti
                 <StatCard label="Low Stock" value={stats.lowstock} icon="fa-triangle-exclamation" tone="warning" onClick={() => router.get('/medicine-list', { filter: 'lowstock' })} active={activeFilter === 'lowstock'} />
                 <StatCard label="Out of Stock" value={stats.outofstock} icon="fa-circle-xmark" tone="danger" onClick={() => router.get('/medicine-list', { filter: 'outofstock' })} active={activeFilter === 'outofstock'} />
                 <StatCard label="Expiring (30D)" value={stats.expiring} icon="fa-hourglass-half" tone="warning" onClick={() => router.get('/medicine-list', { filter: 'expiring' })} active={activeFilter === 'expiring'} />
-                <StatCard label="Expired" value={stats.expired} icon="fa-ban" tone="danger" onClick={() => router.get('/medicine-list', { filter: 'expired' })} active={activeFilter === 'expired'} />
+                <StatCard label="Expired" value={stats.expired ?? 0} icon="fa-ban" tone="danger" onClick={() => router.get('/medicine-list', { filter: 'expired' })} active={activeFilter === 'expired'} />
             </div>
 
             {attention.length > 0 && (
@@ -86,12 +86,19 @@ export default function Index({ medicines, batches, stats, activeFilter, attenti
                 </div>
             )}
 
+            {(errors?.delete || errors?.generic_name || errors?.message) && (
+                <div className="mb-4 bg-red-50 text-red-700 border border-red-200 rounded-xl p-3 text-[13px] font-medium flex items-start gap-2">
+                    <i className="fas fa-circle-exclamation mt-0.5" />
+                    <span>{errors.delete || errors.generic_name || errors.message}</span>
+                </div>
+            )}
+
             {/* Retained State Design */}
             <div className={showAddForm ? 'block' : 'hidden'}>
                 <AddMedicineForm onClose={() => setShowAddForm(false)} types={stats.types ?? []} categories={stats.categories ?? []} />
             </div>
 
-            <MedicineTables 
+            <MedicineTables
                 medicines={medicines}
                 batches={batches}
                 activeFilter={activeFilter}
