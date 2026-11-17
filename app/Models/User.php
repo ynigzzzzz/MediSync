@@ -96,20 +96,26 @@ class User extends Authenticatable
     }
 
     public function scopeFilter($query, array $filters)
-    {
-        $query->when($filters['search'] ?? false, function ($q, $search) {
-            $q->where(function ($sub) use ($search) {
-                $sub->where('full_name', 'ILIKE', "%{$search}%")
-                    ->orWhere('email', 'ILIKE', "%{$search}%");
-            });
+{
+    $query->when($filters['search'] ?? false, function ($q, $search) {
+        $q->where(function ($sub) use ($search) {
+            $sub->where('full_name', 'ILIKE', "%{$search}%")
+                ->orWhere('email', 'ILIKE', "%{$search}%");
         });
+    });
 
-        $query->when($filters['role'] ?? 'all', function ($q, $role) {
-            if ($role !== 'all' && $role !== '') {
-                $q->where('role', $role);
-            }
-        });
-    }
+    $query->when($filters['role'] ?? 'all', function ($q, $role) {
+        if ($role !== 'all' && $role !== '') {
+            $q->where('role', $role);
+        }
+    });
+
+    $query->when($filters['status'] ?? 'all', function ($q, $status) {
+        if ($status !== 'all' && $status !== '') {
+            $q->where('status', $status);
+        }
+    });
+}
 
     public function toggleStatus(): string
     {

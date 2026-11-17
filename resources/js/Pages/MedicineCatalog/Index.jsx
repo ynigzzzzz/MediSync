@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import StatCard from '@/Components/StatCard';
@@ -19,6 +19,12 @@ export default function Index({ medicines, batches, stats, activeFilter, attenti
     const [search, setSearch] = useState(filters?.search || '');
     const [category, setCategory] = useState(filters?.category || '');
     const [type, setType] = useState(filters?.type || '');
+
+    useEffect(() => {
+    setSearch(filters?.search ?? '');
+    setCategory(filters?.category ?? '');
+    setType(filters?.type ?? '');
+}, [filters?.search, filters?.category, filters?.type]);
 
     const isFilteredView = activeFilter !== 'all';
 

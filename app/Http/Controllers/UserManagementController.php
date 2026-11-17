@@ -16,18 +16,29 @@ use Illuminate\Support\Facades\DB;
 class UserManagementController extends Controller
 {
     public function index(Request $request)
-    {
-        abort_unless($request->user()->role === 'admin', 403);
+{
+    abort_unless($request->user()->role === 'admin', 403);
 
-        return Inertia::render('UserManagement/Index', [
-            'users' => User::getIndexData($request->only('search', 'role')),
-            'stats' => User::getStats(),
-            'filters' => [
-                'search' => $request->query('search', ''),
-                'role' => $request->query('role', 'all'),
-            ],
-        ]);
-    }
+    $users = User::query()
+        ->filter($request->only('search', 'role', 'status'))
+        ->orderBy('full_name')
+        ->paginate(15)
+        ->withQueryString();
+
+    return Inertia::render('UserManagement/Index', [
+        'users' => $users,
+        'stats' => [
+            'activeUsers' => User::where('status', 'active')->count(),
+            'inactiveUsers' => User::where('status', 'inactive')->count(),
+            'adminCount' => User::where('role', 'admin')->count(),
+        ],
+        'filters' => [
+            'search' => $request->query('search', ''),
+            'role' => $request->query('role', 'all'),
+            'status' => $request->query('status', 'all'),
+        ],
+    ]);
+}
 
     public function store(StoreUserRequest $request)
     {
