@@ -14,55 +14,28 @@ use Inertia\Inertia;
 
 class MedicineCatalogController extends Controller
 {
-    public function index(Request $request)
-    {
-        $filter = in_array($request->query('filter'), ['lowstock', 'outofstock', 'expiring', 'expired'], true)
-            ? $request->query('filter')
-            : 'all';
+  public function index(Request $request)
+{
+    $filter = in_array($request->query('filter'), ['lowstock', 'outofstock', 'expiring', 'expired'], true)
+        ? $request->query('filter')
+        : 'all';
 
-        $search = $request->query('search', '');
-        $category = $request->query('category', '');
-        $type = $request->query('type', '');
+    $search   = $request->query('search', '');
+    $category = $request->query('category', '');
+    $type     = $request->query('type', '');
 
-        $stats = Medicine::getStats();
+    $stats = Medicine::getStats();
+    $data = Medicine::getCatalogData($filter, $search, $category, $type);
 
-        if (in_array($filter, ['expiring', 'expired'], true)) {
-            $medicines = collect();
-            $batchQuery = StockIn::with('medicine:medicine_id,generic_name,brand_name')
-                ->where('remaining_quantity', '>', 0);
-
-            if ($filter === 'expiring') {
-                $batchQuery->whereDate('expiry_date', '>=', now()->toDateString())
-                    ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString());
-            } else {
-                $batchQuery->whereDate('expiry_date', '<', now()->toDateString());
-            }
-
-            $batches = $batchQuery->orderBy('expiry_date')->paginate(15)->withQueryString();
-        } else {
-            $batches = null;
-            $medicines = Medicine::query()
-                ->filterStatus($filter)
-                ->when($search, fn ($q, $s) => $q->where(function ($sub) use ($s) {
-                    $sub->where('generic_name', 'ILIKE', "%{$s}%")
-                        ->orWhere('brand_name', 'ILIKE', "%{$s}%");
-                }))
-                ->when($category, fn ($q, $c) => $q->where('category', $c))
-                ->when($type, fn ($q, $t) => $q->where('type', $t))
-                ->orderBy('generic_name')
-                ->paginate(15)
-                ->withQueryString();
-        }
-
-        return Inertia::render('MedicineCatalog/Index', [
-            'medicines' => $medicines,
-            'batches' => $batches,
-            'stats' => $stats,
-            'attention' => $this->getAttentionAlerts($stats),
-            'activeFilter' => $filter,
-            'filters' => compact('search', 'category', 'type'),
-        ]);
-    }
+    return Inertia::render('MedicineCatalog/Index', [
+        'medicines'    => $data['medicines'],
+        'batches'      => $data['batches'],
+        'stats'        => $stats,
+        'attention'    => $this->getAttentionAlerts($stats),
+        'activeFilter' => $filter,
+        'filters'      => compact('search', 'category', 'type'),
+    ]);
+}
 
     public function store(StoreMedicineRequest $request)
     {
