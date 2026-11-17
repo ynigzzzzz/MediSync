@@ -50,26 +50,35 @@ class Medicine extends Model
         return $query;
     }
 
-   public static function getStats(): array
-{
-    $today = now()->toDateString();
+    public static function getStats(): array
+    {
+        $today = now()->toDateString();
 
-    return [
-        'total' => self::count(),
-        'lowstock' => self::whereBetween('current_stock', [1, 49])->count(),
-        'outofstock' => self::where('current_stock', 0)->count(),
-        'expiring' => StockIn::where('remaining_quantity', '>', 0)
-            ->whereDate('expiry_date', '>=', $today)
-            ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
-            ->count(),
-        'expired' => StockIn::where('remaining_quantity', '>', 0)
-            ->whereDate('expiry_date', '<', $today)
-            ->count(),
-        'categories' => self::whereNotNull('category')->where('category', '!=', '')->distinct()->pluck('category'),
-        'types' => self::whereNotNull('type')->where('type', '!=', '')->distinct()->pluck('type'),
-    ];
-}
+        return [
+            'total'      => self::count(),
+            'lowstock'   => self::whereBetween('current_stock', [1, 49])->count(),
+            'outofstock' => self::where('current_stock', 0)->count(),
+            'expiring'   => StockIn::where('remaining_quantity', '>', 0)
+                ->whereDate('expiry_date', '>=', $today)
+                ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
+                ->count(),
+            'expired'    => StockIn::where('remaining_quantity', '>', 0)
+                ->whereDate('expiry_date', '<', $today)
+                ->count(),
+            'categories' => self::whereNotNull('category')->where('category', '!=', '')->distinct()->pluck('category'),
+            'types'      => self::whereNotNull('type')->where('type', '!=', '')->distinct()->pluck('type'),
+        ];
+    }
 
+    /**
+     * Single entry point for the Medicine Catalog index page.
+     *
+     *   all / lowstock / outofstock  →  MEDICINE rows (paginator)
+     *   expiring / expired           →  BATCH rows   (paginator) + empty medicine paginator
+     *
+     * Both branches always return a paginator at `medicines` (never `collect()`)
+     * so the frontend can safely read `medicines.data` in every filter.
+     */
     public static function getCatalogData(string $filter, string $search = '', string $category = '', string $type = '')
     {
         $today = now()->toDateString();
@@ -94,35 +103,35 @@ class Medicine extends Model
             $query->where('type', $type);
         }
 
-        if ($filter === 'all') {
+        // ─── Medicine-list filters: all / lowstock / outofstock ───
+        if (in_array($filter, ['all', 'lowstock', 'outofstock'], true)) {
+            if ($filter === 'lowstock') {
+                $query->whereBetween('current_stock', [1, 49]);
+            } elseif ($filter === 'outofstock') {
+                $query->where('current_stock', 0);
+            }
+
             return [
                 'medicines' => $query->orderBy('generic_name')->paginate(15)->withQueryString(),
-                'batches' => null,
+                'batches'   => null,
             ];
         }
 
-        // For all other filters, we query StockIn batches
-        $batchQuery = StockIn::with('medicine:medicine_id,generic_name,brand_name,type,category');
+        // ─── Batch filters: expiring / expired ───
+        $batchQuery = StockIn::with('medicine:medicine_id,generic_name,brand_name,type,category')
+            ->where('remaining_quantity', '>', 0);
 
-        if ($filter === 'outofstock') {
-            $medIds = (clone $query)->where('current_stock', 0)->pluck('medicine_id');
-            // NOTE: We do NOT filter by remaining_quantity > 0 here, so empty batches show up for disposal
-            $batchQuery->whereIn('medicine_id', $medIds);
-        } elseif ($filter === 'lowstock') {
-            $medIds = (clone $query)->whereBetween('current_stock', [1, 49])->pluck('medicine_id');
-            $batchQuery->whereIn('medicine_id', $medIds)->where('remaining_quantity', '>', 0);
-        } elseif ($filter === 'expiring') {
-            $batchQuery->where('remaining_quantity', '>', 0)
-                ->whereDate('expiry_date', '>=', $today)
+        if ($filter === 'expiring') {
+            $batchQuery->whereDate('expiry_date', '>=', $today)
                 ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString());
-        } elseif ($filter === 'expired') {
-            $batchQuery->where('remaining_quantity', '>', 0)
-                ->whereDate('expiry_date', '<', $today);
+        } else { // expired
+            $batchQuery->whereDate('expiry_date', '<', $today);
         }
 
         return [
-            'medicines' => collect(),
-            'batches' => $batchQuery->orderBy('expiry_date')->paginate(15)->withQueryString(),
+            // Empty paginator with the same shape so `medicines.data` always exists
+            'medicines' => self::query()->whereRaw('1 = 0')->paginate(15)->withQueryString(),
+            'batches'   => $batchQuery->orderBy('expiry_date')->paginate(15)->withQueryString(),
         ];
     }
 
@@ -171,14 +180,14 @@ class Medicine extends Model
             $batch->decrement('remaining_quantity', $take);
 
             StockOut::create([
-                'medicine_id' => $this->medicine_id,
-                'quantity' => $take,
-                'dosage' => $dosage ?? '',
-                'price' => $finalPrice,
-                'patient_name' => $patientName,
+                'medicine_id'     => $this->medicine_id,
+                'quantity'        => $take,
+                'dosage'          => $dosage ?? '',
+                'price'           => $finalPrice,
+                'patient_name'    => $patientName,
                 'prescription_no' => $prescriptionNo,
-                'dispensed_by' => $userId,
-                'stock_in_id' => $batch->stock_in_id,
+                'dispensed_by'    => $userId,
+                'stock_in_id'     => $batch->stock_in_id,
             ]);
 
             $itemTotal += $take * $finalPrice;

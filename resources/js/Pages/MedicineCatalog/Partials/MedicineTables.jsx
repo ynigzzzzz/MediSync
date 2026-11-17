@@ -4,19 +4,33 @@ import Pagination from '@/Components/Pagination';
 
 const inputCls = "rounded-xl border border-transparent bg-[#F2F2F7] px-3 py-1.5 text-[13px] text-gray-900 focus:border-[#FF4D79] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#FF4D79]/20 transition-all";
 
-export default function MedicineTables({ 
+const BATCH_TITLES = {
+    expiring: { icon: 'fa-hourglass-half', text: 'Batches Expiring Within 30 Days', bg: 'bg-amber-50', textColor: 'text-amber-800' },
+    expired:  { icon: 'fa-ban',            text: 'Expired Batches (Still in Stock)',  bg: 'bg-red-50',   textColor: 'text-critical-red' },
+};
+
+const MEDICINE_TITLES = {
+    lowstock:   { icon: 'fa-triangle-exclamation', text: 'Low Stock Medicines',   bg: 'bg-amber-50', textColor: 'text-amber-800' },
+    outofstock: { icon: 'fa-circle-xmark',         text: 'Out of Stock Medicines', bg: 'bg-red-50',   textColor: 'text-critical-red' },
+};
+
+export default function MedicineTables({
     medicines, batches, activeFilter, canEdit, onEdit, onDelete, selectedBatches, toggleBatch, confirmDispose,
     search, setSearch, category, setCategory, type, setType, applyFilters, clearFilters, categoriesList, typesList
 }) {
-    const rows = medicines?.data ?? [];
+    const medicineRows = medicines?.data ?? [];
     const batchRows = batches?.data ?? [];
-    const isFilteredView = activeFilter !== 'all';
+
+    // "expiring" / "expired" → batch table. Everything else → medicine table.
+    const isBatchView = activeFilter === 'expiring' || activeFilter === 'expired';
+    const isMedicineFilteredView = activeFilter === 'lowstock' || activeFilter === 'outofstock';
 
     const FilterHeader = () => (
         <form onSubmit={applyFilters} className="flex flex-col sm:flex-row flex-wrap items-center gap-2 w-full">
             <input type="text" className={`${inputCls} w-full sm:w-48`} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name..." />
-            
-            {!isFilteredView && (
+
+            {/* Category / Type only make sense for medicine views (backend supports them there) */}
+            {!isBatchView && (
                 <>
                     <select className={`${inputCls} w-full sm:w-36`} value={category} onChange={e => setCategory(e.target.value)}>
                         <option value="">All Categories</option>
@@ -28,7 +42,7 @@ export default function MedicineTables({
                     </select>
                 </>
             )}
-            
+
             <div className="flex gap-2 w-full sm:w-auto sm:ml-auto">
                 <button type="button" onClick={clearFilters} className="px-3 py-1.5 text-[12px] font-semibold text-gray-500 hover:text-gray-900">Clear</button>
                 <button type="submit" className="rounded-full bg-gray-900 text-white text-[12px] font-semibold px-4 py-1.5 hover:bg-black transition-colors shadow-sm">Filter</button>
@@ -36,20 +50,18 @@ export default function MedicineTables({
         </form>
     );
 
-    if (isFilteredView) {
+    // ────────────────────── BATCH VIEW (expiring / expired only) ──────────────────────
+    if (isBatchView) {
+        const meta = BATCH_TITLES[activeFilter];
         return (
             <div className="bg-white rounded-[16px] shadow-sm border border-gray-100 overflow-hidden">
-                {/* TWO ROW HEADER FOR FILTERED VIEWS */}
-                <div className={`p-4 border-b border-gray-100 flex flex-col gap-4 ${activeFilter === 'expired' || activeFilter === 'outofstock' ? 'bg-red-50' : 'bg-amber-50'}`}>
-                    
+                {/* TWO ROW HEADER FOR BATCH VIEWS */}
+                <div className={`p-4 border-b border-gray-100 flex flex-col gap-4 ${meta.bg}`}>
                     {/* Top Row: Title and Dispose Action */}
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                        <h3 className={`font-semibold text-[14px] ${activeFilter === 'expired' || activeFilter === 'outofstock' ? 'text-critical-red' : 'text-amber-800'}`}>
-                            <i className={`fas mr-2 ${activeFilter === 'outofstock' ? 'fa-circle-xmark' : activeFilter === 'lowstock' ? 'fa-triangle-exclamation' : activeFilter === 'expired' ? 'fa-ban' : 'fa-hourglass-half'}`} />
-                            {activeFilter === 'expiring' && 'Batches Expiring Within 30 Days'}
-                            {activeFilter === 'expired' && 'Expired Batches (Still in Stock)'}
-                            {activeFilter === 'lowstock' && 'Low Stock Batches'}
-                            {activeFilter === 'outofstock' && 'Out of Stock (Batches to Clean)'}
+                        <h3 className={`font-semibold text-[14px] ${meta.textColor}`}>
+                            <i className={`fas mr-2 ${meta.icon}`} />
+                            {meta.text}
                         </h3>
                         <button onClick={confirmDispose} disabled={selectedBatches.length === 0} className="rounded-full bg-critical-red text-white text-[13px] font-semibold px-4 py-2 disabled:opacity-50 hover:bg-red-600 transition-colors shadow-sm whitespace-nowrap">
                             Dispose Selected ({selectedBatches.length})
@@ -92,15 +104,29 @@ export default function MedicineTables({
         );
     }
 
+    // ────────────── MEDICINE VIEW (all / lowstock / outofstock) ──────────────
+    const filteredMeta = isMedicineFilteredView ? MEDICINE_TITLES[activeFilter] : null;
+
     return (
         <div className="bg-white rounded-[16px] shadow-sm border border-gray-100 overflow-hidden">
-            {/* SINGLE ROW HEADER FOR MAIN VIEW */}
-            <div className="p-4 border-b border-gray-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <h2 className="font-semibold text-gray-900 text-[15px] whitespace-nowrap">Master Catalog</h2>
-                <div className="w-full lg:w-auto">
+            {filteredMeta ? (
+                /* FILTERED MEDICINE HEADER (lowstock / outofstock) — banner style, no dispose */
+                <div className={`p-4 border-b border-gray-100 flex flex-col gap-4 ${filteredMeta.bg}`}>
+                    <h3 className={`font-semibold text-[14px] ${filteredMeta.textColor}`}>
+                        <i className={`fas mr-2 ${filteredMeta.icon}`} />
+                        {filteredMeta.text}
+                    </h3>
                     <FilterHeader />
                 </div>
-            </div>
+            ) : (
+                /* MAIN HEADER (all) — unchanged */
+                <div className="p-4 border-b border-gray-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <h2 className="font-semibold text-gray-900 text-[15px] whitespace-nowrap">Master Catalog</h2>
+                    <div className="w-full lg:w-auto">
+                        <FilterHeader />
+                    </div>
+                </div>
+            )}
 
             <div className="overflow-x-auto w-full">
                 <table className="w-full min-w-[800px] text-left text-[13px]">
@@ -117,7 +143,7 @@ export default function MedicineTables({
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                        {rows.map((m) => (
+                        {medicineRows.map((m) => (
                             <tr key={m.medicine_id} className="hover:bg-gray-50/50 transition-colors">
                                 <td className="px-4 py-3 text-gray-900 font-medium">{m.generic_name}</td>
                                 <td className="px-4 py-3 text-gray-600">{m.brand_name}</td>
@@ -136,7 +162,7 @@ export default function MedicineTables({
                                 )}
                             </tr>
                         ))}
-                        {rows.length === 0 && <tr><td colSpan={canEdit ? 8 : 7} className="px-4 py-8 text-center text-gray-400">No medicines found.</td></tr>}
+                        {medicineRows.length === 0 && <tr><td colSpan={canEdit ? 8 : 7} className="px-4 py-8 text-center text-gray-400">No medicines found.</td></tr>}
                     </tbody>
                 </table>
             </div>
