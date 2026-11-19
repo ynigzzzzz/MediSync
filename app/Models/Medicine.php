@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Medicine extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'medicines';
 
@@ -16,7 +17,13 @@ class Medicine extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'generic_name', 'brand_name', 'category', 'dosage', 'price', 'current_stock', 'type',
+        'generic_name',
+        'brand_name',
+        'category',
+        'dosage',
+        'price',
+        'current_stock',
+        'type',
     ];
 
     protected $casts = [
@@ -25,176 +32,356 @@ class Medicine extends Model
         'created_at' => 'datetime',
     ];
 
-    // --- Relationships ---
+    // Relationships
 
     public function stockIn()
     {
-        return $this->hasMany(StockIn::class, 'medicine_id', 'medicine_id');
+        return $this->hasMany(
+            StockIn::class,
+            'medicine_id',
+            'medicine_id',
+        );
     }
 
     public function stockOut()
     {
-        return $this->hasMany(StockOut::class, 'medicine_id', 'medicine_id');
+        return $this->hasMany(
+            StockOut::class,
+            'medicine_id',
+            'medicine_id',
+        );
     }
 
-    // --- Query Scopes & Logic ---
+    // Available Stock Query
+
+    protected static function availableStockByMedicineQuery(
+        string $today,
+    ) {
+        return StockIn::query()
+            ->select('medicine_id')
+            ->selectRaw(
+                'SUM(remaining_quantity) AS available_stock',
+            )
+            ->where('remaining_quantity', '>', 0)
+            ->where('expiry_date', '>=', $today)
+            ->whereNull('disposed_at')
+            ->groupBy('medicine_id');
+    }
+
+    /**
+     * Returns medicines joined with their calculated available stock.
+     *
+     * current_stock remains the physical inventory balance.
+     * available_stock is the unexpired, undisposed balance.
+     */
+    public static function queryWithAvailableStock(
+        ?string $today = null,
+    ) {
+        $today ??= now()->toDateString();
+
+        return self::query()
+            ->leftJoinSub(
+                self::availableStockByMedicineQuery($today),
+                'available_batches',
+                function ($join) {
+                    $join->on(
+                        'medicines.medicine_id',
+                        '=',
+                        'available_batches.medicine_id',
+                    );
+                },
+            )
+            ->select('medicines.*')
+            ->selectRaw(
+                'COALESCE(available_batches.available_stock, 0) AS available_stock',
+            );
+    }
+
+    // Query Scopes
 
     public function scopeFilterStatus($query, string $filter)
     {
+        $today = now()->toDateString();
+
+        $availableMedicineIds = StockIn::query()
+            ->select('medicine_id')
+            ->where('remaining_quantity', '>', 0)
+            ->where('expiry_date', '>=', $today)
+            ->whereNull('disposed_at')
+            ->groupBy('medicine_id');
+
         if ($filter === 'lowstock') {
-            $query->whereBetween('current_stock', [1, 49]);
+            $query->whereIn(
+                'medicines.medicine_id',
+                (clone $availableMedicineIds)->havingRaw(
+                    'SUM(remaining_quantity) BETWEEN ? AND ?',
+                    [1, 49],
+                ),
+            );
         } elseif ($filter === 'outofstock') {
-            $query->where('current_stock', 0);
+            $query->whereNotIn(
+                'medicines.medicine_id',
+                $availableMedicineIds,
+            );
         }
 
         return $query;
     }
 
+    // Statistics
+
     public static function getStats(): array
     {
         $today = now()->toDateString();
+        $thirtyDaysFromNow = now()->addDays(30)->toDateString();
+
+        $stockQuery = self::query()
+            ->leftJoinSub(
+                self::availableStockByMedicineQuery($today),
+                'available_batches',
+                function ($join) {
+                    $join->on(
+                        'medicines.medicine_id',
+                        '=',
+                        'available_batches.medicine_id',
+                    );
+                },
+            );
+
+        $lowStockCount = (clone $stockQuery)
+            ->whereBetween(
+                'available_batches.available_stock',
+                [1, 49],
+            )
+            ->count('medicines.medicine_id');
+
+        $outOfStockCount = (clone $stockQuery)
+            ->whereNull('available_batches.medicine_id')
+            ->count('medicines.medicine_id');
 
         return [
-            'total'      => self::count(),
-            'lowstock'   => self::whereBetween('current_stock', [1, 49])->count(),
-            'outofstock' => self::where('current_stock', 0)->count(),
-            'expiring'   => StockIn::where('remaining_quantity', '>', 0)
-                ->whereDate('expiry_date', '>=', $today)
-                ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
+            'total' => self::count(),
+
+            'lowstock' => $lowStockCount,
+
+            'outofstock' => $outOfStockCount,
+
+            'expiring' => StockIn::where(
+                'remaining_quantity',
+                '>',
+                0,
+            )
+                ->whereNull('disposed_at')
+                ->where('expiry_date', '>=', $today)
+                ->where('expiry_date', '<=', $thirtyDaysFromNow)
                 ->count(),
-            'expired'    => StockIn::where('remaining_quantity', '>', 0)
-                ->whereDate('expiry_date', '<', $today)
+
+            'expired' => StockIn::where(
+                'remaining_quantity',
+                '>',
+                0,
+            )
+                ->whereNull('disposed_at')
+                ->where('expiry_date', '<', $today)
                 ->count(),
-            'categories' => self::whereNotNull('category')->where('category', '!=', '')->distinct()->pluck('category'),
-            'types'      => self::whereNotNull('type')->where('type', '!=', '')->distinct()->pluck('type'),
+
+            'categories' => self::whereNotNull('category')
+                ->where('category', '!=', '')
+                ->distinct()
+                ->pluck('category'),
+
+            'types' => self::whereNotNull('type')
+                ->where('type', '!=', '')
+                ->distinct()
+                ->pluck('type'),
         ];
     }
 
-    /**
-     * Single entry point for the Medicine Catalog index page.
-     *
-     *   all / lowstock / outofstock  →  MEDICINE rows (paginator)
-     *   expiring / expired           →  BATCH rows   (paginator) + empty medicine paginator
-     *
-     * Both branches always return a paginator at `medicines` (never `collect()`)
-     * so the frontend can safely read `medicines.data` in every filter.
-     */
-    public static function getCatalogData(string $filter, string $search = '', string $category = '', string $type = '')
-    {
+    // Medicine Catalog
+
+    public static function getCatalogData(
+        string $filter,
+        string $search = '',
+        string $category = '',
+        string $type = '',
+    ) {
         $today = now()->toDateString();
-        $allowedFilters = ['lowstock', 'outofstock', 'expiring', 'expired'];
+        $thirtyDaysFromNow = now()->addDays(30)->toDateString();
+
+        $allowedFilters = [
+            'lowstock',
+            'outofstock',
+            'expiring',
+            'expired',
+        ];
 
         if (! in_array($filter, $allowedFilters, true)) {
             $filter = 'all';
         }
 
-        $query = self::query();
+        $query = self::queryWithAvailableStock($today);
 
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('generic_name', 'ILIKE', "%{$search}%")
-                    ->orWhere('brand_name', 'ILIKE', "%{$search}%");
+                $q->where(
+                    'medicines.generic_name',
+                    'ILIKE',
+                    "%{$search}%",
+                )
+                    ->orWhere(
+                        'medicines.brand_name',
+                        'ILIKE',
+                        "%{$search}%",
+                    );
             });
         }
+
         if ($category) {
-            $query->where('category', $category);
-        }
-        if ($type) {
-            $query->where('type', $type);
+            $query->where('medicines.category', $category);
         }
 
-        // ─── Medicine-list filters: all / lowstock / outofstock ───
-        if (in_array($filter, ['all', 'lowstock', 'outofstock'], true)) {
+        if ($type) {
+            $query->where('medicines.type', $type);
+        }
+
+        // Medicine views
+
+        if (in_array($filter, [
+            'all',
+            'lowstock',
+            'outofstock',
+        ], true)) {
+
             if ($filter === 'lowstock') {
-                $query->whereBetween('current_stock', [1, 49]);
+                $query->whereBetween(
+                    'available_batches.available_stock',
+                    [1, 49],
+                );
             } elseif ($filter === 'outofstock') {
-                $query->where('current_stock', 0);
+                $query->whereNull(
+                    'available_batches.medicine_id',
+                );
             }
 
             return [
-                'medicines' => $query->orderBy('generic_name')->paginate(15)->withQueryString(),
-                'batches'   => null,
+                'medicines' => $query
+                    ->orderBy('medicines.generic_name')
+                    ->paginate(15)
+                    ->withQueryString(),
+
+                'batches' => null,
             ];
         }
 
-        // ─── Batch filters: expiring / expired ───
-        $batchQuery = StockIn::with('medicine:medicine_id,generic_name,brand_name,type,category')
-            ->where('remaining_quantity', '>', 0);
+        // Expiring and expired batch views
+
+        $batchQuery = StockIn::with(
+            'medicine:medicine_id,generic_name,brand_name,type,category',
+        )
+            ->where('remaining_quantity', '>', 0)
+            ->whereNull('disposed_at');
 
         if ($filter === 'expiring') {
-            $batchQuery->whereDate('expiry_date', '>=', $today)
-                ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString());
-        } else { // expired
-            $batchQuery->whereDate('expiry_date', '<', $today);
+            $batchQuery
+                ->where('expiry_date', '>=', $today)
+                ->where('expiry_date', '<=', $thirtyDaysFromNow);
+        } else {
+            $batchQuery->where('expiry_date', '<', $today);
         }
 
         return [
-            // Empty paginator with the same shape so `medicines.data` always exists
-            'medicines' => self::query()->whereRaw('1 = 0')->paginate(15)->withQueryString(),
-            'batches'   => $batchQuery->orderBy('expiry_date')->paginate(15)->withQueryString(),
+            'medicines' => self::query()
+                ->whereRaw('1 = 0')
+                ->paginate(15)
+                ->withQueryString(),
+
+            'batches' => $batchQuery
+                ->orderBy('expiry_date')
+                ->paginate(15)
+                ->withQueryString(),
         ];
     }
 
     /**
      * FEFO (First-Expired, First-Out) dispensing.
+     *
+     * Price is always retrieved from the database.
      */
     public function dispense(
         int $quantityNeeded,
-        ?float $requestedPrice,
         ?string $dosage,
         string $patientName,
         string $prescriptionNo,
         int $userId,
     ): float {
-        $unexpiredTotal = $this->stockIn()
-            ->where('expiry_date', '>=', now()->toDateString())
+
+        if ($quantityNeeded < 1) {
+            throw new \Exception(
+                'Dispensing quantity must be at least 1.',
+            );
+        }
+
+        if ((int) $this->current_stock < $quantityNeeded) {
+            throw new \Exception(
+                "Insufficient total stock for '{$this->generic_name}'.",
+            );
+        }
+
+        $today = now()->toDateString();
+
+        $batches = $this->stockIn()
+            ->where('expiry_date', '>=', $today)
             ->where('remaining_quantity', '>', 0)
-            ->sum('remaining_quantity');
+            ->whereNull('disposed_at')
+            ->orderBy('expiry_date')
+            ->orderBy('stock_in_id')
+            ->lockForUpdate()
+            ->get();
+
+        $unexpiredTotal = (int) $batches->sum('remaining_quantity');
 
         if ($unexpiredTotal < $quantityNeeded) {
-            $expiredOnly = $this->current_stock - $unexpiredTotal;
-            throw new \Exception("Cannot dispense {$quantityNeeded} units of '{$this->generic_name}'. Unexpired available: {$unexpiredTotal}. Expired (unusable): {$expiredOnly}.");
+            throw new \Exception(
+                "Cannot dispense {$quantityNeeded} units of '{$this->generic_name}'. ".
+                "Available unexpired stock: {$unexpiredTotal}.",
+            );
         }
 
-        if ($this->current_stock < $quantityNeeded) {
-            throw new \Exception("Insufficient total stock for '{$this->generic_name}'. Requested {$quantityNeeded}, available {$this->current_stock}.");
-        }
-
-        $finalPrice = ($requestedPrice !== null && $requestedPrice > 0) ? $requestedPrice : (float) $this->price;
+        $finalPrice = (float) $this->price;
         $remaining = $quantityNeeded;
         $itemTotal = 0;
 
-        while ($remaining > 0) {
-            $batch = $this->stockIn()
-                ->where('remaining_quantity', '>', 0)
-                ->where('expiry_date', '>=', now()->toDateString())
-                ->orderBy('expiry_date')
-                ->lockForUpdate()
-                ->first();
-
-            if (! $batch) {
-                throw new \Exception("No available unexpired stock for '{$this->generic_name}'.");
+        foreach ($batches as $batch) {
+            if ($remaining <= 0) {
+                break;
             }
 
-            $take = min($remaining, $batch->remaining_quantity);
+            $take = min(
+                $remaining,
+                (int) $batch->remaining_quantity,
+            );
+
             $batch->decrement('remaining_quantity', $take);
 
             StockOut::create([
-                'medicine_id'     => $this->medicine_id,
-                'quantity'        => $take,
-                'dosage'          => $dosage ?? '',
-                'price'           => $finalPrice,
-                'patient_name'    => $patientName,
+                'medicine_id' => $this->medicine_id,
+                'quantity' => $take,
+                'dosage' => $dosage ?? '',
+                'price' => $finalPrice,
+                'patient_name' => $patientName,
                 'prescription_no' => $prescriptionNo,
-                'dispensed_by'    => $userId,
-                'stock_in_id'     => $batch->stock_in_id,
+                'dispensed_by' => $userId,
+                'stock_in_id' => $batch->stock_in_id,
             ]);
 
             $itemTotal += $take * $finalPrice;
             $remaining -= $take;
         }
 
-        $this->decrement('current_stock', $quantityNeeded);
+        $this->decrement(
+            'current_stock',
+            $quantityNeeded,
+        );
 
         return $itemTotal;
     }

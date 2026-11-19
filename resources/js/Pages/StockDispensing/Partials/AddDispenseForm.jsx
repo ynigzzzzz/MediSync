@@ -1,9 +1,11 @@
+
 import { useState } from "react";
 import { router, usePage } from "@inertiajs/react";
 import { SearchableSelect } from "@/Components/ui/searchable-select";
 
 const inputCls =
     "w-full rounded-xl border border-transparent bg-[#F2F2F7] px-3 py-2.5 text-[14px] text-gray-900 placeholder-gray-400 focus:border-gray-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-100 transition-all";
+
 const lockedCls =
     "w-full rounded-xl border border-transparent bg-gray-100 px-3 py-2.5 text-[14px] text-gray-500 cursor-not-allowed placeholder-gray-400";
 
@@ -21,7 +23,7 @@ export default function AddDispenseForm({ medicines, onClose }) {
 
     const medicineOptions = medicines.map((m) => ({
         value: String(m.medicine_id),
-        label: `${m.generic_name}${m.brand_name ? ` (${m.brand_name})` : ""} — stock: ${m.current_stock}`,
+        label: `${m.generic_name}${m.brand_name ? ` (${m.brand_name})` : ""} — stock: ${Number(m.available_stock ?? 0)}`,
         data: m,
     }));
 
@@ -34,7 +36,9 @@ export default function AddDispenseForm({ medicines, onClose }) {
         const med = medicines.find(
             (m) => String(m.medicine_id) === String(val),
         );
+
         setMedicineId(val);
+
         if (med) {
             setDosage(med.dosage || "");
             setPrice(med.price || "");
@@ -46,9 +50,11 @@ export default function AddDispenseForm({ medicines, onClose }) {
 
     function addToCart() {
         if (!medicineId || !quantity) return;
+
         const med = medicines.find(
             (m) => String(m.medicine_id) === String(medicineId),
         );
+
         if (!med) return;
 
         setCart((prev) => [
@@ -71,23 +77,32 @@ export default function AddDispenseForm({ medicines, onClose }) {
     }
 
     function removeFromCart(cartId) {
-        setCart((prev) => prev.filter((item) => item.cart_id !== cartId));
+        setCart((prev) =>
+            prev.filter((item) => item.cart_id !== cartId),
+        );
     }
 
     function submitDispense() {
         if (cart.length === 0) return;
+
         setProcessing(true);
+
         router.post(
             "/dispensing",
             {
                 patient_name: patientName,
                 prescription_no: prescriptionNo,
-                items: cart.map(({ medicine_id, quantity, price, dosage }) => ({
-                    medicine_id,
-                    quantity,
-                    price,
-                    dosage,
-                })),
+
+                // Price is deliberately excluded.
+                // The backend retrieves it from the database.
+
+                items: cart.map(
+                    ({ medicine_id, quantity, dosage }) => ({
+                        medicine_id,
+                        quantity,
+                        dosage,
+                    }),
+                ),
             },
             {
                 onSuccess: () => {
@@ -96,6 +111,7 @@ export default function AddDispenseForm({ medicines, onClose }) {
                     setPrescriptionNo("");
                     onClose();
                 },
+
                 onFinish: () => setProcessing(false),
             },
         );
@@ -107,11 +123,13 @@ export default function AddDispenseForm({ medicines, onClose }) {
                 <h2 className="font-semibold text-gray-900 text-[15px] mb-5">
                     Add Item to Cart
                 </h2>
+
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
                     <div>
                         <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
                             Medicine<span className="text-critical-red">*</span>
                         </label>
+
                         <SearchableSelect
                             value={medicineId}
                             onChange={handleMedicineChange}
@@ -119,10 +137,12 @@ export default function AddDispenseForm({ medicines, onClose }) {
                             placeholder="Search medicine..."
                         />
                     </div>
+
                     <div>
                         <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
                             Quantity<span className="text-critical-red">*</span>
                         </label>
+
                         <input
                             type="number"
                             min="1"
@@ -131,10 +151,12 @@ export default function AddDispenseForm({ medicines, onClose }) {
                             onChange={(e) => setQuantity(e.target.value)}
                         />
                     </div>
+
                     <div>
                         <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
                             Dosage
                         </label>
+
                         <input
                             type="text"
                             readOnly
@@ -143,10 +165,12 @@ export default function AddDispenseForm({ medicines, onClose }) {
                             placeholder="Select a medicine first..."
                         />
                     </div>
+
                     <div>
                         <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
                             Price (₱)
                         </label>
+
                         <input
                             type="number"
                             readOnly
@@ -156,6 +180,7 @@ export default function AddDispenseForm({ medicines, onClose }) {
                         />
                     </div>
                 </div>
+
                 <div className="flex justify-end pt-4 mt-2">
                     <button
                         onClick={addToCart}
@@ -171,6 +196,7 @@ export default function AddDispenseForm({ medicines, onClose }) {
                     <h2 className="font-semibold text-gray-900 text-[15px] mb-5">
                         Current Cart
                     </h2>
+
                     <div className="overflow-x-auto w-full">
                         <table className="w-full min-w-[600px] text-left text-[13px]">
                             <thead>
@@ -178,20 +204,25 @@ export default function AddDispenseForm({ medicines, onClose }) {
                                     <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                         Medicine
                                     </th>
+
                                     <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                         Qty
                                     </th>
+
                                     <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                         Dosage
                                     </th>
+
                                     <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                         Price
                                     </th>
+
                                     <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                         Actions
                                     </th>
                                 </tr>
                             </thead>
+
                             <tbody className="divide-y divide-gray-50">
                                 {cart.map((c) => (
                                     <tr
@@ -201,17 +232,21 @@ export default function AddDispenseForm({ medicines, onClose }) {
                                         <td className="px-4 py-3 text-gray-900 font-medium">
                                             {c.generic_name} ({c.brand_name})
                                         </td>
+
                                         <td className="px-4 py-3 text-gray-600">
                                             {c.quantity}
                                         </td>
+
                                         <td className="px-4 py-3 text-gray-600">
                                             {c.dosage ? `${c.dosage}` : "—"}
                                         </td>
+
                                         <td className="px-4 py-3 text-gray-600">
                                             {c.price != null
                                                 ? `₱${c.price.toFixed(2)}`
                                                 : "—"}
                                         </td>
+
                                         <td className="px-4 py-3 text-right">
                                             <button
                                                 onClick={() =>
@@ -225,6 +260,7 @@ export default function AddDispenseForm({ medicines, onClose }) {
                                     </tr>
                                 ))}
                             </tbody>
+
                             <tfoot>
                                 <tr className="border-t border-gray-200">
                                     <td
@@ -233,6 +269,7 @@ export default function AddDispenseForm({ medicines, onClose }) {
                                     >
                                         Total Amount:
                                     </td>
+
                                     <td className="px-4 py-3 text-gray-900 font-bold">
                                         ₱
                                         {cart
@@ -245,27 +282,34 @@ export default function AddDispenseForm({ medicines, onClose }) {
                                             )
                                             .toFixed(2)}
                                     </td>
+
                                     <td></td>
                                 </tr>
                             </tfoot>
                         </table>
                     </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 mt-2 border-t border-gray-100">
                         <div>
                             <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
                                 Patient Name (Optional)
                             </label>
+
                             <input
                                 type="text"
                                 className={inputCls}
                                 value={patientName}
-                                onChange={(e) => setPatientName(e.target.value)}
+                                onChange={(e) =>
+                                    setPatientName(e.target.value)
+                                }
                             />
                         </div>
+
                         <div>
                             <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
                                 Prescription No. (Optional)
                             </label>
+
                             <input
                                 type="text"
                                 className={inputCls}
@@ -276,6 +320,7 @@ export default function AddDispenseForm({ medicines, onClose }) {
                             />
                         </div>
                     </div>
+
                     <div className="flex justify-end pt-4">
                         <button
                             onClick={submitDispense}

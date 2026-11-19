@@ -2,43 +2,42 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\DeleteUserRequest;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
-use Illuminate\Support\Facades\DB;
 
 class UserManagementController extends Controller
 {
     public function index(Request $request)
-{
-    abort_unless($request->user()->role === 'admin', 403);
+    {
+        abort_unless($request->user()->role === 'admin', 403);
 
-    $users = User::query()
-        ->filter($request->only('search', 'role', 'status'))
-        ->orderBy('full_name')
-        ->paginate(15)
-        ->withQueryString();
+        $users = User::query()
+            ->filter($request->only('search', 'role', 'status'))
+            ->orderBy('full_name')
+            ->paginate(15)
+            ->withQueryString();
 
-    return Inertia::render('UserManagement/Index', [
-        'users' => $users,
-        'stats' => [
-            'activeUsers' => User::where('status', 'active')->count(),
-            'inactiveUsers' => User::where('status', 'inactive')->count(),
-            'adminCount' => User::where('role', 'admin')->count(),
-        ],
-        'filters' => [
-            'search' => $request->query('search', ''),
-            'role' => $request->query('role', 'all'),
-            'status' => $request->query('status', 'all'),
-        ],
-    ]);
-}
+        return Inertia::render('UserManagement/Index', [
+            'users' => $users,
+            'stats' => [
+                'activeUsers' => User::where('status', 'active')->count(),
+                'inactiveUsers' => User::where('status', 'inactive')->count(),
+                'adminCount' => User::where('role', 'admin')->count(),
+            ],
+            'filters' => [
+                'search' => $request->query('search', ''),
+                'role' => $request->query('role', 'all'),
+                'status' => $request->query('status', 'all'),
+            ],
+        ]);
+    }
 
     public function store(StoreUserRequest $request)
     {
@@ -118,32 +117,32 @@ class UserManagementController extends Controller
     }
 
     public function destroy(Request $request, User $user)
-{
-    abort_unless($request->user()->role === 'admin', 403);
+    {
+        abort_unless($request->user()->role === 'admin', 403);
 
-    if ($user->user_id === $request->user()->user_id) {
-        return back()->withErrors(['message' => 'You cannot delete your own account.']);
+        if ($user->user_id === $request->user()->user_id) {
+            return back()->withErrors(['message' => 'You cannot delete your own account.']);
+        }
+
+        $hasActivity = DB::table('stock_out')->where('dispensed_by', $user->user_id)->exists()
+            || DB::table('stock_in')->where('received_by', $user->user_id)->exists();
+
+        if ($hasActivity) {
+            return back()->withErrors([
+                'message' => "Cannot delete {$user->full_name} — they have transaction history. Deactivate the account instead.",
+            ]);
+        }
+
+        $name = $user->full_name;
+        $id = $user->user_id;
+        $user->delete();
+
+        AuditLog::record(
+            $request->user()->user_id,
+            'DELETE_USER',
+            "Deleted user: {$name} (ID {$id})",
+        );
+
+        return back()->with('success', 'User deleted successfully.');
     }
-
-    $hasActivity = DB::table('stock_out')->where('dispensed_by', $user->user_id)->exists()
-        || DB::table('stock_in')->where('received_by', $user->user_id)->exists();
-
-    if ($hasActivity) {
-        return back()->withErrors([
-            'message' => "Cannot delete {$user->full_name} — they have transaction history. Deactivate the account instead.",
-        ]);
-    }
-
-    $name = $user->full_name;
-    $id = $user->user_id;
-    $user->delete();
-
-    AuditLog::record(
-        $request->user()->user_id,
-        'DELETE_USER',
-        "Deleted user: {$name} (ID {$id})"
-    );
-
-    return back()->with('success', 'User deleted successfully.');
-}
 }

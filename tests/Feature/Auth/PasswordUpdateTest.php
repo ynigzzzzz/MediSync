@@ -29,7 +29,7 @@ class PasswordUpdateTest extends TestCase
             ->assertRedirect('/profile');
 
         $this->assertTrue(
-            Hash::check('new-password', $user->refresh()->password_hash)
+            Hash::check('new-password', $user->refresh()->password_hash),
         );
     }
 

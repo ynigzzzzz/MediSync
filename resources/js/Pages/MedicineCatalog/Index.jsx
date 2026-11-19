@@ -9,7 +9,9 @@ import MedicineTables from './Partials/MedicineTables';
 
 export default function Index({ medicines, batches, stats, activeFilter, attention = [], filters = {} }) {
     const { auth, errors } = usePage().props;
-    const canEdit = auth.user.role !== 'assistant';
+    const role = auth.user?.role;
+    const canEdit = ['admin', 'pharmacist'].includes(role);
+    const canDelete = role === 'admin';
 
     const [showAddForm, setShowAddForm] = useState(false);
     const [editingMedicine, setEditingMedicine] = useState(null);
@@ -109,6 +111,7 @@ export default function Index({ medicines, batches, stats, activeFilter, attenti
                 batches={batches}
                 activeFilter={activeFilter}
                 canEdit={canEdit}
+                canDelete={canDelete}
                 onEdit={setEditingMedicine}
                 onDelete={setPendingDelete}
                 selectedBatches={selectedBatches}

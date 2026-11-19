@@ -9,7 +9,7 @@ class StoreMedicineRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->role !== 'assistant';
+        return in_array($this->user()?->role, ['admin', 'pharmacist'], true);
     }
 
     public function rules(): array

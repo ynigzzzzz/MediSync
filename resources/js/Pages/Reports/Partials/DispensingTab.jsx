@@ -1,6 +1,15 @@
 import { useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/Components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/Components/ui/tabs";
+import {
+    Card,
+    CardHeader,
+    CardTitle,
+    CardContent,
+} from "@/Components/ui/card";
+import {
+    Tabs,
+    TabsList,
+    TabsTrigger,
+} from "@/Components/ui/tabs";
 import StatCard from "@/Components/StatCard";
 import { BarChart } from "@/Components/Charts/BarChart";
 import { ReportLineChart } from "@/Components/ReportChart";
@@ -8,6 +17,7 @@ import { CHART_COLORS } from "@/lib/chart-palette";
 
 const inputCls =
     "w-full rounded-xl border border-transparent bg-[#F2F2F7] px-3 py-2 text-[14px] text-gray-900 placeholder-gray-400 focus:border-gray-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-100 transition-all";
+
 function peso(n) {
     return (
         "₱" +
@@ -18,9 +28,12 @@ function peso(n) {
     );
 }
 
-export default function DispensingTab({ dispensing }) {
+export default function DispensingTab({
+    dispensing,
+    userId,
+    onUserChange,
+}) {
     const [dispTab, setDispTab] = useState("summary");
-    const [usrFilter, setUsrFilter] = useState("all");
 
     return (
         <div className="mt-0">
@@ -33,6 +46,7 @@ export default function DispensingTab({ dispensing }) {
                         >
                             Summary
                         </TabsTrigger>
+
                         <TabsTrigger
                             value="user"
                             className="rounded-md px-4 py-1.5 text-[12px] font-semibold text-gray-500 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm transition-all"
@@ -41,15 +55,17 @@ export default function DispensingTab({ dispensing }) {
                         </TabsTrigger>
                     </TabsList>
                 </Tabs>
+
                 <select
                     className={`${inputCls} sm:w-48`}
-                    value={usrFilter}
-                    onChange={(e) => setUsrFilter(e.target.value)}
+                    value={userId || "all"}
+                    onChange={(e) => onUserChange(e.target.value)}
                 >
                     <option value="all">All Users</option>
-                    {dispensing.users_list.map((u) => (
-                        <option key={u.user_id} value={u.user_id}>
-                            {u.full_name}
+
+                    {(dispensing.users_list || []).map((user) => (
+                        <option key={user.user_id} value={user.user_id}>
+                            {user.full_name}
                         </option>
                     ))}
                 </select>
@@ -61,12 +77,14 @@ export default function DispensingTab({ dispensing }) {
                     label="Records"
                     value={dispensing.total_records}
                 />
+
                 <StatCard
                     icon="fa-arrow-up"
                     label="Total Units"
                     value={dispensing.total_units}
                     tone="rose"
                 />
+
                 <StatCard
                     icon="fa-sack-dollar"
                     label="Total Value"
@@ -81,6 +99,7 @@ export default function DispensingTab({ dispensing }) {
                         <CardHeader>
                             <CardTitle>Daily Dispensing</CardTitle>
                         </CardHeader>
+
                         <CardContent>
                             <ReportLineChart
                                 data={dispensing.daily}
@@ -95,13 +114,15 @@ export default function DispensingTab({ dispensing }) {
                             />
                         </CardContent>
                     </Card>
+
                     <Card>
                         <CardHeader>
                             <CardTitle>Top Dispensed</CardTitle>
                         </CardHeader>
+
                         <CardContent>
                             <BarChart
-                                data={dispensing.by_medicine.slice(0, 5)}
+                                data={(dispensing.by_medicine || []).slice(0, 5)}
                                 xKey="name"
                                 yKey="units"
                                 label="Units"
@@ -117,6 +138,7 @@ export default function DispensingTab({ dispensing }) {
                     <CardHeader>
                         <CardTitle>Dispensed by User</CardTitle>
                     </CardHeader>
+
                     <CardContent className="p-0 overflow-x-auto">
                         <table className="w-full text-left text-[13px]">
                             <thead>
@@ -124,16 +146,19 @@ export default function DispensingTab({ dispensing }) {
                                     <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                         User
                                     </th>
+
                                     <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                         Records
                                     </th>
+
                                     <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                         Units
                                     </th>
                                 </tr>
                             </thead>
+
                             <tbody className="divide-y divide-gray-50">
-                                {dispensing.by_user.length === 0 ? (
+                                {(dispensing.by_user || []).length === 0 ? (
                                     <tr>
                                         <td
                                             colSpan={3}
@@ -143,19 +168,21 @@ export default function DispensingTab({ dispensing }) {
                                         </td>
                                     </tr>
                                 ) : (
-                                    dispensing.by_user.map((r, i) => (
+                                    dispensing.by_user.map((row, index) => (
                                         <tr
-                                            key={i}
+                                            key={row.user_id ?? index}
                                             className="hover:bg-gray-50/50 transition-colors"
                                         >
                                             <td className="px-4 py-3 text-gray-900 font-medium">
-                                                {r.user}
+                                                {row.user}
                                             </td>
+
                                             <td className="px-4 py-3 text-gray-600">
-                                                {r.records}
+                                                {row.records}
                                             </td>
+
                                             <td className="px-4 py-3 text-gray-600">
-                                                {r.units}
+                                                {row.units}
                                             </td>
                                         </tr>
                                     ))

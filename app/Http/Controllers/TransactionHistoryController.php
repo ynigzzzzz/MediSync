@@ -3,60 +3,79 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\DisposeStockBatchesRequest;
+use App\Http\Requests\TransactionHistoryFilterRequest;
 use App\Models\StockIn;
 use App\Models\StockOut;
 use App\Models\User;
-use Illuminate\Http\Request;
+use App\Services\TransactionHistoryCsvExporter;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 
 class TransactionHistoryController extends Controller
 {
-    public function index(Request $request)
+    public function index(TransactionHistoryFilterRequest $request)
     {
-        $filters = $request->only(['search', 'type', 'date_from', 'date_to', 'user']);
+        $filters = $request->validated();
         $query = StockOut::getTransactionHistory($filters);
 
-        $transactions = (clone $query)->orderByDesc('date_time')->paginate(15)->withQueryString();
-
         return Inertia::render('TransactionHistory/Index', [
-            'transactions' => $transactions,
+            'transactions' => (clone $query)
+                ->orderByDesc('date_time')
+                ->orderByDesc('record_id')
+                ->paginate(15)
+                ->withQueryString(),
             'totalFilteredRecords' => (clone $query)->count(),
-            'stockInCount' => (clone $query)->where('source_table', 'stock_in')->count(),
-            'stockOutCount' => (clone $query)->where('source_table', 'stock_out')->count(),
             'totalTransactions' => StockIn::count() + StockOut::count(),
-            'stockInTotal' => (float) StockIn::whereRaw("DATE_TRUNC('month', recorded_at) = DATE_TRUNC('month', CURRENT_DATE)")->sum('quantity'),
-            'stockOutTotal' => (float) StockOut::whereRaw("DATE_TRUNC('month', dispensed_at) = DATE_TRUNC('month', CURRENT_DATE)")->sum('quantity'),
-            'users' => User::where('role', '!=', 'admin')->orderBy('full_name')->pluck('full_name'),
+            'stockInTotal' => StockIn::query()
+                ->whereMonth('recorded_at', now()->month)
+                ->whereYear('recorded_at', now()->year)
+                ->sum('quantity'),
+            'stockOutTotal' => StockOut::query()
+                ->whereMonth('dispensed_at', now()->month)
+                ->whereYear('dispensed_at', now()->year)
+                ->sum('quantity'),
+            'users' => User::query()
+                ->orderBy('full_name')
+                ->get(['user_id', 'full_name']),
             'filters' => $filters,
+            'canPrint' => $request->user()->can('print-transaction-history'),
+            'canExport' => $request->user()->can('export-transaction-history'),
         ]);
     }
 
-    public function exportCsv(Request $request)
+    public function print(TransactionHistoryFilterRequest $request)
     {
-        $filters = $request->only(['search', 'type', 'date_from', 'date_to', 'user']);
-        $rows = StockOut::getTransactionHistory($filters)->orderByDesc('date_time')->get();
+        Gate::authorize('print-transaction-history');
 
-        $filename = 'transaction_history_'.now()->format('Y-m-d').'.csv';
+        $filters = $request->validated();
 
-        return response()->streamDownload(function () use ($rows) {
-            $out = fopen('php://output', 'w');
-            fwrite($out, chr(0xEF).chr(0xBB).chr(0xBF));
-            fputcsv($out, ['Date & Time', 'Type', 'Medicine (Generic)', 'Brand Name', 'Dosage', 'Quantity', 'Selling Price', 'Batch #', 'Expiry Date', 'Supplier', 'Invoice No', 'Patient Name', 'Prescription No', 'User']);
-            foreach ($rows as $row) {
-                fputcsv($out, [
-                    $row->date_time, $row->transaction_type, $row->generic_name, $row->brand_name,
-                    $row->dosage, $row->quantity, $row->selling_price, $row->batch_reference ?? '',
-                    $row->expiry_date ?? '', $row->supplier ?? '', $row->invoice_no ?? '',
-                    $row->patient_name ?? '', $row->prescription_no ?? '', $row->user_name ?? 'System',
-                ]);
-            }
-            fclose($out);
-        }, $filename, ['Content-Type' => 'text/csv; charset=utf-8']);
+        $transactions = StockOut::getTransactionHistory($filters)
+            ->orderByDesc('date_time')
+            ->orderByDesc('record_id')
+            ->get();
+
+        return Inertia::render('TransactionHistory/Print', [
+            'transactions' => $transactions,
+            'filters' => $filters,
+            'generatedAt' => now()->toDateTimeString(),
+        ]);
+    }
+
+    public function exportCsv(
+        TransactionHistoryFilterRequest $request,
+        TransactionHistoryCsvExporter $exporter,
+    ) {
+        Gate::authorize('export-transaction-history');
+
+        return $exporter->download($request->validated());
     }
 
     public function disposeBatches(DisposeStockBatchesRequest $request)
     {
-        StockIn::disposeBatches($request->validated()['batch_ids'], $request->user()->user_id);
+        StockIn::disposeBatches(
+            $request->validated()['batch_ids'],
+            $request->user()->user_id,
+        );
 
         return back()->with('success', 'Selected batches disposed.');
     }

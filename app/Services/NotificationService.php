@@ -14,12 +14,19 @@ class NotificationService
 
     public const EXPIRING_DAYS = 30;
 
-    private const ALERT_TYPES = ['out_of_stock', 'low_stock', 'expiring', 'expired'];
+    private const ALERT_TYPES = [
+        'out_of_stock',
+        'low_stock',
+        'expiring',
+        'expired',
+    ];
 
     public static function syncStockAlerts(): void
     {
         $alerts = self::currentAlerts();
-        $userIds = User::where('status', 'active')->pluck('user_id');
+
+        $userIds = User::where('status', 'active')
+            ->pluck('user_id');
 
         if ($userIds->isEmpty()) {
             return;
@@ -29,14 +36,14 @@ class NotificationService
         $rows = [];
 
         foreach ($userIds as $userId) {
-            foreach ($alerts as $a) {
+            foreach ($alerts as $alert) {
                 $rows[] = [
                     'user_id' => $userId,
-                    'type' => $a['type'],
-                    'title' => $a['title'],
-                    'message' => $a['message'],
-                    'link' => $a['link'],
-                    'dedupe_key' => $a['key'],
+                    'type' => $alert['type'],
+                    'title' => $alert['title'],
+                    'message' => $alert['message'],
+                    'link' => $alert['link'],
+                    'dedupe_key' => $alert['key'],
                     'read_at' => null,
                     'created_at' => $now,
                 ];
@@ -45,14 +52,19 @@ class NotificationService
 
         DB::transaction(function () use ($rows, $alerts) {
             foreach (array_chunk($rows, 500) as $chunk) {
-                DB::table('system_notifications')->insertOrIgnore($chunk);
+                DB::table('system_notifications')
+                    ->insertOrIgnore($chunk);
             }
 
             $activeKeys = array_column($alerts, 'key');
-            $state = DB::table('system_notifications')->whereIn('type', self::ALERT_TYPES);
+
+            $state = DB::table('system_notifications')
+                ->whereIn('type', self::ALERT_TYPES);
+
             if ($activeKeys) {
                 $state->whereNotIn('dedupe_key', $activeKeys);
             }
+
             $state->delete();
 
             DB::table('system_notifications')
@@ -65,8 +77,10 @@ class NotificationService
     public static function syncThrottled(): void
     {
         $key = 'stock-alerts-synced';
+
         if (! Cache::has($key)) {
             self::syncStockAlerts();
+
             Cache::put($key, true, 30);
         }
     }
@@ -75,61 +89,96 @@ class NotificationService
     {
         $alerts = [];
 
-        // ── Out of stock ──
-        Medicine::where('current_stock', 0)
-            ->orderBy('generic_name')
-            ->get(['medicine_id', 'generic_name', 'brand_name'])
-            ->each(function ($m) use (&$alerts) {
+        $medicineQuery = Medicine::queryWithAvailableStock();
+
+        // Out of stock: no eligible batch stock.
+
+        (clone $medicineQuery)
+            ->whereNull('available_batches.medicine_id')
+            ->orderBy('medicines.generic_name')
+            ->get()
+            ->each(function ($medicine) use (&$alerts) {
                 $alerts[] = [
                     'type' => 'out_of_stock',
-                    'key' => 'out_of_stock:'.$m->medicine_id,
-                    'title' => 'Out of stock: '.$m->generic_name,
-                    'message' => ($m->brand_name ? $m->brand_name.' — ' : '').'0 units remaining.',
+                    'key' => 'out_of_stock:'.$medicine->medicine_id,
+                    'title' => 'Out of stock: '.$medicine->generic_name,
+                    'message' => (
+                        $medicine->brand_name
+                            ? $medicine->brand_name.' — '
+                            : ''
+                    ).'0 units available.',
                     'link' => '/medicine-list?filter=outofstock',
                 ];
             });
 
-        // ── Low stock ──
-        Medicine::whereBetween('current_stock', [1, self::LOW_STOCK_THRESHOLD - 1])
-            ->orderBy('generic_name')
-            ->get(['medicine_id', 'generic_name', 'brand_name', 'current_stock'])
-            ->each(function ($m) use (&$alerts) {
+        // Low stock: 1 to 49 eligible units.
+
+        (clone $medicineQuery)
+            ->whereBetween(
+                'available_batches.available_stock',
+                [1, self::LOW_STOCK_THRESHOLD - 1],
+            )
+            ->orderBy('medicines.generic_name')
+            ->get()
+            ->each(function ($medicine) use (&$alerts) {
+                $availableStock = (int) $medicine->available_stock;
+
                 $alerts[] = [
                     'type' => 'low_stock',
-                    'key' => 'low_stock:'.$m->medicine_id,
-                    'title' => 'Low stock: '.$m->generic_name,
-                    'message' => ($m->brand_name ? $m->brand_name.' — ' : '').$m->current_stock.' units remaining.',
+                    'key' => 'low_stock:'.$medicine->medicine_id,
+                    'title' => 'Low stock: '.$medicine->generic_name,
+                    'message' => (
+                        $medicine->brand_name
+                            ? $medicine->brand_name.' — '
+                            : ''
+                    ).$availableStock.' units available.',
                     'link' => '/medicine-list?filter=lowstock',
                 ];
             });
 
-        // ── Expiring within 30 days (still in the future) ──
+        // Expiring batches.
+
         StockIn::where('remaining_quantity', '>', 0)
+            ->whereNull('disposed_at')
             ->whereDate('expiry_date', '>=', now()->toDateString())
-            ->whereDate('expiry_date', '<=', now()->addDays(self::EXPIRING_DAYS)->toDateString())
+            ->whereDate(
+                'expiry_date',
+                '<=',
+                now()->addDays(self::EXPIRING_DAYS)->toDateString(),
+            )
             ->with('medicine:medicine_id,generic_name,brand_name')
+            ->orderBy('expiry_date')
             ->get()
-            ->each(function ($b) use (&$alerts) {
+            ->each(function ($batch) use (&$alerts) {
                 $alerts[] = [
                     'type' => 'expiring',
-                    'key' => 'expiring:'.$b->stock_in_id,
-                    'title' => 'Expiring soon: '.($b->medicine->generic_name ?? 'Unknown'),
-                    'message' => 'Batch '.$b->batch_no.' expires '.$b->expiry_date.'.',
+                    'key' => 'expiring:'.$batch->stock_in_id,
+                    'title' => 'Expiring soon: '.(
+                        $batch->medicine->generic_name ?? 'Unknown'
+                    ),
+                    'message' => 'Batch '.$batch->batch_no.
+                        ' expires '.$batch->expiry_date.'.',
                     'link' => '/medicine-list?filter=expiring',
                 ];
             });
 
-        // ── Already expired (past) ──
+        // Already expired batches.
+
         StockIn::where('remaining_quantity', '>', 0)
+            ->whereNull('disposed_at')
             ->whereDate('expiry_date', '<', now()->toDateString())
             ->with('medicine:medicine_id,generic_name,brand_name')
+            ->orderBy('expiry_date')
             ->get()
-            ->each(function ($b) use (&$alerts) {
+            ->each(function ($batch) use (&$alerts) {
                 $alerts[] = [
                     'type' => 'expired',
-                    'key' => 'expired:'.$b->stock_in_id,
-                    'title' => 'Expired: '.($b->medicine->generic_name ?? 'Unknown'),
-                    'message' => 'Batch '.$b->batch_no.' expired on '.$b->expiry_date.'.',
+                    'key' => 'expired:'.$batch->stock_in_id,
+                    'title' => 'Expired: '.(
+                        $batch->medicine->generic_name ?? 'Unknown'
+                    ),
+                    'message' => 'Batch '.$batch->batch_no.
+                        ' expired on '.$batch->expiry_date.'.',
                     'link' => '/medicine-list?filter=expired',
                 ];
             });

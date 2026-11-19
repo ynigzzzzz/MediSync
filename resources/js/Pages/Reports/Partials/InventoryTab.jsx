@@ -1,6 +1,15 @@
 import { useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/Components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/Components/ui/tabs";
+import {
+    Card,
+    CardHeader,
+    CardTitle,
+    CardContent,
+} from "@/Components/ui/card";
+import {
+    Tabs,
+    TabsList,
+    TabsTrigger,
+} from "@/Components/ui/tabs";
 import StatCard from "@/Components/StatCard";
 import Badge from "@/Components/Badge";
 import { RadialChart } from "@/Components/Charts/RadialChart";
@@ -18,9 +27,23 @@ function peso(n) {
     );
 }
 
-export default function InventoryTab({ inventory }) {
+export default function InventoryTab({
+    inventory,
+    category,
+    onCategoryChange,
+}) {
     const [invTab, setInvTab] = useState("overview");
-    const [invFilter, setInvFilter] = useState("all");
+
+    const selectedCategory = category || "all";
+
+    const healthPercentage = inventory.total_medicines > 0
+        ? Math.round(
+            (
+                (inventory.total_medicines - inventory.out_of_stock)
+                / inventory.total_medicines
+            ) * 100,
+        )
+        : 0;
 
     return (
         <div className="mt-0">
@@ -33,6 +56,7 @@ export default function InventoryTab({ inventory }) {
                         >
                             Overview
                         </TabsTrigger>
+
                         <TabsTrigger
                             value="lowout"
                             className="rounded-md px-4 py-1.5 text-[12px] font-semibold text-gray-500 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm transition-all"
@@ -41,15 +65,17 @@ export default function InventoryTab({ inventory }) {
                         </TabsTrigger>
                     </TabsList>
                 </Tabs>
+
                 <select
                     className={`${inputCls} sm:w-48`}
-                    value={invFilter}
-                    onChange={(e) => setInvFilter(e.target.value)}
+                    value={selectedCategory}
+                    onChange={(e) => onCategoryChange(e.target.value)}
                 >
                     <option value="all">All Categories</option>
-                    {inventory.categories.map((c) => (
-                        <option key={c} value={c}>
-                            {c}
+
+                    {(inventory.categories || []).map((categoryName) => (
+                        <option key={categoryName} value={categoryName}>
+                            {categoryName}
                         </option>
                     ))}
                 </select>
@@ -61,23 +87,27 @@ export default function InventoryTab({ inventory }) {
                     label="Total Medicines"
                     value={inventory.total_medicines}
                 />
+
                 <StatCard
                     icon="fa-triangle-exclamation"
                     label="Low Stock"
                     value={inventory.low_stock}
                     tone="warning"
                 />
+
                 <StatCard
                     icon="fa-circle-xmark"
                     label="Out of Stock"
                     value={inventory.out_of_stock}
                     tone="danger"
                 />
+
                 <StatCard
                     icon="fa-sack-dollar"
                     label="Inventory Value"
                     value={peso(inventory.valuation)}
                     tone="success"
+                    tooltip="Estimated selling value of usable, unexpired and undisposed stock."
                 />
             </div>
 
@@ -87,6 +117,7 @@ export default function InventoryTab({ inventory }) {
                         <CardHeader>
                             <CardTitle>Full Inventory</CardTitle>
                         </CardHeader>
+
                         <CardContent className="p-0 overflow-x-auto">
                             <table className="w-full text-left text-[13px]">
                                 <thead>
@@ -94,59 +125,70 @@ export default function InventoryTab({ inventory }) {
                                         <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                             Generic
                                         </th>
+
                                         <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                             Category
                                         </th>
+
                                         <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                                            Stock
+                                            Available Stock
                                         </th>
+
                                         <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                             Status
                                         </th>
                                     </tr>
                                 </thead>
+
                                 <tbody className="divide-y divide-gray-50">
-                                    {inventory.rows.slice(0, 15).map((r) => (
-                                        <tr
-                                            key={r.medicine_id}
-                                            className="hover:bg-gray-50/50 transition-colors"
-                                        >
-                                            <td className="px-4 py-3 text-gray-900 font-medium">
-                                                {r.generic_name}{" "}
-                                                {r.brand_name && (
-                                                    <span className="text-[11px] font-normal text-gray-400">
-                                                        ({r.brand_name})
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-3 text-gray-600">
-                                                {r.category}
-                                            </td>
-                                            <td className="px-4 py-3 text-gray-600">
-                                                {r.current_stock}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                {r.status === "out" && (
-                                                    <Badge tone="danger">
-                                                        Out
-                                                    </Badge>
-                                                )}
-                                                {r.status === "low" && (
-                                                    <Badge tone="warning">
-                                                        Low
-                                                    </Badge>
-                                                )}
-                                                {r.status === "ok" && (
-                                                    <Badge
-                                                        tone="success"
-                                                        outline
-                                                    >
-                                                        OK
-                                                    </Badge>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {(inventory.rows || [])
+                                        .slice(0, 15)
+                                        .map((row) => (
+                                            <tr
+                                                key={row.medicine_id}
+                                                className="hover:bg-gray-50/50 transition-colors"
+                                            >
+                                                <td className="px-4 py-3 text-gray-900 font-medium">
+                                                    {row.generic_name}{" "}
+                                                    {row.brand_name && (
+                                                        <span className="text-[11px] font-normal text-gray-400">
+                                                            ({row.brand_name})
+                                                        </span>
+                                                    )}
+                                                </td>
+
+                                                <td className="px-4 py-3 text-gray-600">
+                                                    {row.category || "—"}
+                                                </td>
+
+                                                <td className="px-4 py-3 text-gray-600">
+                                                    {row.available_stock}
+                                                </td>
+
+                                                <td className="px-4 py-3">
+                                                    {row.status === "out" && (
+                                                        <Badge tone="danger">
+                                                            Out
+                                                        </Badge>
+                                                    )}
+
+                                                    {row.status === "low" && (
+                                                        <Badge tone="warning">
+                                                            Low
+                                                        </Badge>
+                                                    )}
+
+                                                    {row.status === "ok" && (
+                                                        <Badge
+                                                            tone="success"
+                                                            outline
+                                                        >
+                                                            OK
+                                                        </Badge>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
                                 </tbody>
                             </table>
                         </CardContent>
@@ -156,29 +198,25 @@ export default function InventoryTab({ inventory }) {
                         <CardHeader className="w-full text-center pb-0">
                             <CardTitle>Inventory Health</CardTitle>
                         </CardHeader>
+
                         <CardContent className="flex flex-col items-center w-full">
                             <RadialChart
                                 data={[
                                     {
                                         name: "Health",
-                                        value:
-                                            Math.round(
-                                                ((inventory.total_medicines -
-                                                    inventory.out_of_stock) /
-                                                    inventory.total_medicines) *
-                                                    100,
-                                            ) || 0,
+                                        value: healthPercentage,
                                         fill: "#2E7D64",
                                     },
                                 ]}
-                                value={`${Math.round(((inventory.total_medicines - inventory.out_of_stock) / inventory.total_medicines) * 100) || 0}%`}
+                                value={`${healthPercentage}%`}
                                 label="Healthy"
                             />
+
                             <p className="text-[12px] text-gray-500 text-center mt-2">
                                 {inventory.total_medicines -
                                     inventory.out_of_stock}{" "}
-                                out of {inventory.total_medicines} items are in
-                                stock.
+                                out of {inventory.total_medicines} medicines
+                                have usable stock.
                             </p>
                         </CardContent>
                     </Card>
@@ -190,6 +228,7 @@ export default function InventoryTab({ inventory }) {
                     <CardHeader>
                         <CardTitle>Low & Out of Stock</CardTitle>
                     </CardHeader>
+
                     <CardContent className="p-0 overflow-x-auto">
                         <table className="w-full text-left text-[13px]">
                             <thead>
@@ -197,47 +236,57 @@ export default function InventoryTab({ inventory }) {
                                     <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                         Generic
                                     </th>
+
                                     <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                         Brand
                                     </th>
+
                                     <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                         Dosage
                                     </th>
+
                                     <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                                        Stock
+                                        Available Stock
                                     </th>
+
                                     <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                         Status
                                     </th>
                                 </tr>
                             </thead>
+
                             <tbody className="divide-y divide-gray-50">
-                                {inventory.rows
-                                    .filter((r) => r.status !== "ok")
-                                    .map((r) => (
+                                {(inventory.rows || [])
+                                    .filter((row) => row.status !== "ok")
+                                    .map((row) => (
                                         <tr
-                                            key={r.medicine_id}
+                                            key={row.medicine_id}
                                             className="hover:bg-gray-50/50 transition-colors"
                                         >
                                             <td className="px-4 py-3 text-gray-900 font-medium">
-                                                {r.generic_name}
+                                                {row.generic_name}
                                             </td>
+
                                             <td className="px-4 py-3 text-gray-600">
-                                                {r.brand_name}
+                                                {row.brand_name || "—"}
                                             </td>
+
                                             <td className="px-4 py-3 text-gray-600">
-                                                {r.dosage}
+                                                {row.dosage || "—"}
                                             </td>
+
                                             <td className="px-4 py-3 text-gray-600">
-                                                {r.current_stock}
+                                                {row.available_stock}
                                             </td>
+
                                             <td className="px-4 py-3">
-                                                {r.status === "out" && (
+                                                {row.status === "out" && (
                                                     <Badge tone="danger">
                                                         Out
                                                     </Badge>
                                                 )}
-                                                {r.status === "low" && (
+
+                                                {row.status === "low" && (
                                                     <Badge tone="warning">
                                                         Low
                                                     </Badge>
@@ -245,8 +294,10 @@ export default function InventoryTab({ inventory }) {
                                             </td>
                                         </tr>
                                     ))}
-                                {inventory.rows.filter((r) => r.status !== "ok")
-                                    .length === 0 && (
+
+                                {(inventory.rows || []).filter(
+                                    (row) => row.status !== "ok",
+                                ).length === 0 && (
                                     <tr>
                                         <td
                                             colSpan={5}

@@ -1,6 +1,15 @@
 import { useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/Components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/Components/ui/tabs";
+import {
+    Card,
+    CardHeader,
+    CardTitle,
+    CardContent,
+} from "@/Components/ui/card";
+import {
+    Tabs,
+    TabsList,
+    TabsTrigger,
+} from "@/Components/ui/tabs";
 import StatCard from "@/Components/StatCard";
 import { DonutChart } from "@/Components/Charts/DonutChart";
 import { ReportLineChart } from "@/Components/ReportChart";
@@ -8,6 +17,7 @@ import { CHART_COLORS } from "@/lib/chart-palette";
 
 const inputCls =
     "w-full rounded-xl border border-transparent bg-[#F2F2F7] px-3 py-2 text-[14px] text-gray-900 placeholder-gray-400 focus:border-gray-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-100 transition-all";
+
 function peso(n) {
     return (
         "₱" +
@@ -18,9 +28,12 @@ function peso(n) {
     );
 }
 
-export default function ReceivingTab({ receiving }) {
+export default function ReceivingTab({
+    receiving,
+    supplierId,
+    onSupplierChange,
+}) {
     const [recvTab, setRecvTab] = useState("summary");
-    const [supFilter, setSupFilter] = useState("all");
 
     return (
         <div className="mt-0">
@@ -33,6 +46,7 @@ export default function ReceivingTab({ receiving }) {
                         >
                             Summary
                         </TabsTrigger>
+
                         <TabsTrigger
                             value="supplier"
                             className="rounded-md px-4 py-1.5 text-[12px] font-semibold text-gray-500 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm transition-all"
@@ -41,15 +55,20 @@ export default function ReceivingTab({ receiving }) {
                         </TabsTrigger>
                     </TabsList>
                 </Tabs>
+
                 <select
                     className={`${inputCls} sm:w-48`}
-                    value={supFilter}
-                    onChange={(e) => setSupFilter(e.target.value)}
+                    value={supplierId || "all"}
+                    onChange={(e) => onSupplierChange(e.target.value)}
                 >
                     <option value="all">All Suppliers</option>
-                    {receiving.suppliers_list.map((s) => (
-                        <option key={s.supplier_id} value={s.supplier_id}>
-                            {s.name}
+
+                    {(receiving.suppliers_list || []).map((supplier) => (
+                        <option
+                            key={supplier.supplier_id}
+                            value={supplier.supplier_id}
+                        >
+                            {supplier.name}
                         </option>
                     ))}
                 </select>
@@ -61,12 +80,14 @@ export default function ReceivingTab({ receiving }) {
                     label="Total Batches"
                     value={receiving.total_batches}
                 />
+
                 <StatCard
                     icon="fa-arrow-down"
                     label="Total Units"
                     value={receiving.total_units}
                     tone="success"
                 />
+
                 <StatCard
                     icon="fa-sack-dollar"
                     label="Total Cost"
@@ -80,6 +101,7 @@ export default function ReceivingTab({ receiving }) {
                         <CardHeader>
                             <CardTitle>Daily Receiving</CardTitle>
                         </CardHeader>
+
                         <CardContent>
                             <ReportLineChart
                                 data={receiving.daily}
@@ -94,31 +116,34 @@ export default function ReceivingTab({ receiving }) {
                             />
                         </CardContent>
                     </Card>
+
                     <Card>
                         <CardHeader>
                             <CardTitle>By Supplier</CardTitle>
                         </CardHeader>
+
                         <CardContent className="flex flex-col items-center">
                             <DonutChart
-                                data={receiving.by_supplier
+                                data={(receiving.by_supplier || [])
                                     .slice(0, 4)
-                                    .map((s, i) => ({
-                                        name: s.supplier,
-                                        value: s.units,
+                                    .map((supplier, index) => ({
+                                        name: supplier.supplier,
+                                        value: supplier.units,
                                         fill: [
                                             "#2E7D64",
                                             "#3B82F6",
                                             "#FF4D79",
                                             "#E67E22",
-                                        ][i % 4],
+                                        ][index % 4],
                                     }))}
                             />
+
                             <div className="w-full mt-4 space-y-2">
-                                {receiving.by_supplier
+                                {(receiving.by_supplier || [])
                                     .slice(0, 4)
-                                    .map((s, i) => (
+                                    .map((supplier, index) => (
                                         <div
-                                            key={s.supplier}
+                                            key={`${supplier.supplier}-${index}`}
                                             className="flex justify-between text-[12px]"
                                         >
                                             <div className="flex items-center gap-2">
@@ -130,15 +155,17 @@ export default function ReceivingTab({ receiving }) {
                                                             "#3B82F6",
                                                             "#FF4D79",
                                                             "#E67E22",
-                                                        ][i % 4],
+                                                        ][index % 4],
                                                     }}
                                                 />
+
                                                 <span className="text-gray-600">
-                                                    {s.supplier}
+                                                    {supplier.supplier}
                                                 </span>
                                             </div>
+
                                             <span className="font-semibold text-gray-900">
-                                                {s.units} units
+                                                {supplier.units} units
                                             </span>
                                         </div>
                                     ))}
@@ -153,6 +180,7 @@ export default function ReceivingTab({ receiving }) {
                     <CardHeader>
                         <CardTitle>Receiving by Supplier</CardTitle>
                     </CardHeader>
+
                     <CardContent className="p-0 overflow-x-auto">
                         <table className="w-full text-left text-[13px]">
                             <thead>
@@ -160,19 +188,23 @@ export default function ReceivingTab({ receiving }) {
                                     <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                         Supplier
                                     </th>
+
                                     <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                         Batches
                                     </th>
+
                                     <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                         Units
                                     </th>
+
                                     <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                         Cost
                                     </th>
                                 </tr>
                             </thead>
+
                             <tbody className="divide-y divide-gray-50">
-                                {receiving.by_supplier.length === 0 ? (
+                                {(receiving.by_supplier || []).length === 0 ? (
                                     <tr>
                                         <td
                                             colSpan={4}
@@ -182,25 +214,30 @@ export default function ReceivingTab({ receiving }) {
                                         </td>
                                     </tr>
                                 ) : (
-                                    receiving.by_supplier.map((r, i) => (
-                                        <tr
-                                            key={i}
-                                            className="hover:bg-gray-50/50 transition-colors"
-                                        >
-                                            <td className="px-4 py-3 text-gray-900 font-medium">
-                                                {r.supplier}
-                                            </td>
-                                            <td className="px-4 py-3 text-gray-600">
-                                                {r.batches}
-                                            </td>
-                                            <td className="px-4 py-3 text-gray-600">
-                                                {r.units}
-                                            </td>
-                                            <td className="px-4 py-3 text-gray-600">
-                                                {peso(r.cost)}
-                                            </td>
-                                        </tr>
-                                    ))
+                                    receiving.by_supplier.map(
+                                        (row, index) => (
+                                            <tr
+                                                key={`${row.supplier}-${index}`}
+                                                className="hover:bg-gray-50/50 transition-colors"
+                                            >
+                                                <td className="px-4 py-3 text-gray-900 font-medium">
+                                                    {row.supplier}
+                                                </td>
+
+                                                <td className="px-4 py-3 text-gray-600">
+                                                    {row.batches}
+                                                </td>
+
+                                                <td className="px-4 py-3 text-gray-600">
+                                                    {row.units}
+                                                </td>
+
+                                                <td className="px-4 py-3 text-gray-600">
+                                                    {peso(row.cost)}
+                                                </td>
+                                            </tr>
+                                        ),
+                                    )
                                 )}
                             </tbody>
                         </table>

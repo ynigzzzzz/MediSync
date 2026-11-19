@@ -8,35 +8,67 @@ use App\Http\Requests\StoreStockInRequest;
 use App\Models\AuditLog;
 use App\Models\Medicine;
 use App\Models\StockIn;
+use App\Models\StockOut;
 use App\Models\Supplier;
 use App\Services\StockAlertService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class StockReceivingController extends Controller
 {
     public function index(Request $request)
     {
-        abort_if($request->user()->role === 'assistant', 403);
+        abort_unless(
+            in_array($request->user()?->role, ['admin', 'pharmacist'], true),
+            403,
+        );
 
-        $filters = $request->only(['search', 'date_from', 'date_to']);
+        $filters = $request->only([
+            'search',
+            'date_from',
+            'date_to',
+        ]);
+
         $data = StockIn::getReceivingData($filters);
 
+        $medicineStats = Medicine::getStats();
+
         return Inertia::render('StockReceiving/Index', [
-            'medicines' => Medicine::select('medicine_id', 'generic_name', 'brand_name', 'current_stock', 'price', 'dosage')->orderBy('generic_name')->get(),
-            'suppliers' => Supplier::where('status', 'active')->orderBy('name')->get(['supplier_id', 'name']),
+            'medicines' => Medicine::select(
+                'medicine_id',
+                'generic_name',
+                'brand_name',
+                'current_stock',
+                'price',
+                'dosage',
+            )
+                ->orderBy('generic_name')
+                ->get(),
+
+            'suppliers' => Supplier::where(
+                'status',
+                'active',
+            )
+                ->orderBy('name')
+                ->get([
+                    'supplier_id',
+                    'name',
+                ]),
+
             'records' => $data['records'],
+
             'expiringBatches' => $data['expiringBatches'],
+
             'alerts' => StockAlertService::getAlerts(),
+
             'stats' => [
-                'low_stock' => Medicine::whereBetween('current_stock', [1, 49])->count(),
-                'out_of_stock' => Medicine::where('current_stock', 0)->count(),
-                'expiring' => StockIn::where('remaining_quantity', '>', 0)
-                    ->whereDate('expiry_date', '>=', now()->toDateString())
-                    ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
-                    ->count(),
+                'low_stock' => $medicineStats['lowstock'],
+                'out_of_stock' => $medicineStats['outofstock'],
+                'expiring' => $medicineStats['expiring'],
             ],
+
             'filters' => $filters,
         ]);
     }
@@ -45,55 +77,126 @@ class StockReceivingController extends Controller
     {
         $data = $request->validated();
 
-        $supplier = Supplier::find($data['supplier_id']);
-        if (! $supplier || $supplier->status !== 'active') {
-            return back()->withErrors(['supplier_id' => 'The selected supplier is not active.']);
-        }
-
-        $data['supplier'] = $supplier->name;
-
-        $batch = StockIn::receiveBatch($data, $request->user()->user_id);
-
-        AuditLog::record(
+        StockIn::receiveBatch(
+            $data,
             $request->user()->user_id,
-            'STOCK_IN',
-            "Added {$data['quantity']} units of {$batch->medicine->generic_name} (supplier: {$supplier->name})",
-            $data['medicine_id'],
         );
 
-        return back()->with('success', 'Stock-In successful!');
+        return back()->with(
+            'success',
+            'Stock-In successful!',
+        );
     }
 
-    public function destroy(DeleteStockInRequest $request, StockIn $stockIn)
-    {
-        if ($stockIn->remaining_quantity < $stockIn->quantity) {
-            return back()->withErrors([
-                'delete' => 'This batch has already been partially dispensed and cannot be deleted. Use Dispose instead.',
-            ]);
-        }
+    public function destroy(
+        DeleteStockInRequest $request,
+        StockIn $stockIn,
+    ) {
 
-        DB::transaction(function () use ($request, $stockIn) {
-            Medicine::where('medicine_id', $stockIn->medicine_id)
-                ->decrement('current_stock', $stockIn->remaining_quantity);
+        $batchId = (int) $stockIn->stock_in_id;
+
+        $medicineId = (int) $stockIn->medicine_id;
+
+        DB::transaction(function () use (
+            $request,
+            $batchId,
+            $medicineId
+        ) {
+
+            // Use the same lock order as dispensing and disposal.
+
+            $medicine = Medicine::where(
+                'medicine_id',
+                $medicineId,
+            )
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $batch = StockIn::where(
+                'stock_in_id',
+                $batchId,
+            )
+                ->lockForUpdate()
+                ->first();
+
+            if (! $batch) {
+                throw ValidationException::withMessages([
+                    'delete' => 'The selected receiving batch no longer exists.',
+                ]);
+            }
+
+            // Only completely untouched batches can be deleted.
+
+            if (
+                $batch->disposed_at !== null
+                || (int) $batch->disposed_quantity > 0
+                || (int) $batch->remaining_quantity !== (int) $batch->quantity
+            ) {
+                throw ValidationException::withMessages([
+                    'delete' => 'This batch has dispensing or disposal history and cannot be deleted. Use Dispose for its remaining stock.',
+                ]);
+            }
+
+            // Preserve any batch that has dispensing references.
+
+            $hasDispensingHistory = StockOut::where(
+                'stock_in_id',
+                $batchId,
+            )->exists();
+
+            if ($hasDispensingHistory) {
+                throw ValidationException::withMessages([
+                    'delete' => 'This batch has dispensing history and cannot be deleted.',
+                ]);
+            }
+
+            $quantity = (int) $batch->remaining_quantity;
+
+            if ((int) $medicine->current_stock < $quantity) {
+                throw ValidationException::withMessages([
+                    'delete' => 'Inventory mismatch detected. Reconcile the medicine stock before deleting this batch.',
+                ]);
+            }
+
+            // Remove the received quantity from aggregate stock.
+
+            $medicine->current_stock =
+                (int) $medicine->current_stock - $quantity;
+
+            $medicine->save();
 
             AuditLog::record(
                 $request->user()->user_id,
                 'DELETE_STOCK_IN',
-                "Deleted stock-in record ID {$stockIn->stock_in_id}",
-                null,
+                "Deleted stock-in record ID {$batch->stock_in_id}",
+                $batchId,
                 $request->validated('reason'),
             );
 
-            $stockIn->delete();
-        });
+            // This deletion is allowed only because the batch
+            // has no dispensing or disposal history.
 
-        return back()->with('success', 'Record deleted.');
+            $batch->delete();
+
+        }, 3);
+
+        return back()->with(
+            'success',
+            'Record deleted.',
+        );
     }
 
-    public function disposeBatches(DisposeStockBatchesRequest $request)
-    {
-        StockIn::disposeBatches($request->validated()['batch_ids'], $request->user()->user_id);
+    public function disposeBatches(
+        DisposeStockBatchesRequest $request,
+    ) {
+        StockIn::disposeBatches(
+            $request->validated()['batch_ids'],
+            $request->user()->user_id,
+        );
 
-        return back()->with('success', 'Selected batches disposed.');
+        return back()->with(
+            'success',
+            'Selected batches disposed.',
+        );
     }
 }
