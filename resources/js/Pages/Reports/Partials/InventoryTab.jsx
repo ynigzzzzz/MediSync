@@ -104,10 +104,10 @@ export default function InventoryTab({
 
                 <StatCard
                     icon="fa-sack-dollar"
-                    label="Inventory Value"
+                    label="Inventory Cost Value"
                     value={peso(inventory.valuation)}
                     tone="success"
-                    tooltip="Estimated selling value of usable, unexpired and undisposed stock."
+                    tooltip="Total acquisition cost of usable, unexpired and undisposed remaining stock."
                 />
             </div>
 
@@ -134,6 +134,10 @@ export default function InventoryTab({
                                             Available Stock
                                         </th>
 
+                                        <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap">
+                                            Acquisition Value
+                                        </th>
+
                                         <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                             Status
                                         </th>
@@ -141,54 +145,68 @@ export default function InventoryTab({
                                 </thead>
 
                                 <tbody className="divide-y divide-gray-50">
-                                    {(inventory.rows || [])
-                                        .slice(0, 15)
-                                        .map((row) => (
-                                            <tr
-                                                key={row.medicine_id}
-                                                className="hover:bg-gray-50/50 transition-colors"
+                                    {(inventory.rows || []).map((row) => (
+                                        <tr
+                                            key={row.medicine_id}
+                                            className="hover:bg-gray-50/50 transition-colors"
+                                        >
+                                            <td className="px-4 py-3 text-gray-900 font-medium">
+                                                {row.generic_name}{" "}
+
+                                                {row.brand_name && (
+                                                    <span className="text-[11px] font-normal text-gray-400">
+                                                        ({row.brand_name})
+                                                    </span>
+                                                )}
+                                            </td>
+
+                                            <td className="px-4 py-3 text-gray-600">
+                                                {row.category || "—"}
+                                            </td>
+
+                                            <td className="px-4 py-3 text-gray-600">
+                                                {row.available_stock}
+                                            </td>
+
+                                            <td className="px-4 py-3 text-gray-900 font-medium whitespace-nowrap">
+                                                {peso(row.stock_value)}
+                                            </td>
+
+                                            <td className="px-4 py-3">
+                                                {row.status === "out" && (
+                                                    <Badge tone="danger">
+                                                        Out
+                                                    </Badge>
+                                                )}
+
+                                                {row.status === "low" && (
+                                                    <Badge tone="warning">
+                                                        Low
+                                                    </Badge>
+                                                )}
+
+                                                {row.status === "ok" && (
+                                                    <Badge
+                                                        tone="success"
+                                                        outline
+                                                    >
+                                                        OK
+                                                    </Badge>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+
+                                    {(inventory.rows || []).length === 0 && (
+                                        <tr>
+                                            <td
+                                                colSpan={5}
+                                                className="px-4 py-8 text-center text-gray-400"
                                             >
-                                                <td className="px-4 py-3 text-gray-900 font-medium">
-                                                    {row.generic_name}{" "}
-                                                    {row.brand_name && (
-                                                        <span className="text-[11px] font-normal text-gray-400">
-                                                            ({row.brand_name})
-                                                        </span>
-                                                    )}
-                                                </td>
-
-                                                <td className="px-4 py-3 text-gray-600">
-                                                    {row.category || "—"}
-                                                </td>
-
-                                                <td className="px-4 py-3 text-gray-600">
-                                                    {row.available_stock}
-                                                </td>
-
-                                                <td className="px-4 py-3">
-                                                    {row.status === "out" && (
-                                                        <Badge tone="danger">
-                                                            Out
-                                                        </Badge>
-                                                    )}
-
-                                                    {row.status === "low" && (
-                                                        <Badge tone="warning">
-                                                            Low
-                                                        </Badge>
-                                                    )}
-
-                                                    {row.status === "ok" && (
-                                                        <Badge
-                                                            tone="success"
-                                                            outline
-                                                        >
-                                                            OK
-                                                        </Badge>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
+                                                No inventory records found.
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </CardContent>

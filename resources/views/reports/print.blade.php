@@ -122,53 +122,55 @@
         @if ($filters['category'] !== 'all')
             <p>Category: {{ $filters['category'] }}</p>
         @endif
-
         <table>
-            <thead>
-                <tr>
-                    <th>Generic</th>
-                    <th>Brand</th>
-                    <th>Dosage</th>
-                    <th>Category</th>
-                    <th>Available Stock</th>
-                    <th>Physical Stock</th>
-                    <th>Price</th>
-                    <th>Stock Value</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
+<thead>
+    <tr>
+        <th>Generic</th>
+        <th>Brand</th>
+        <th>Dosage</th>
+        <th>Category</th>
+        <th>Available Stock</th>
+        <th>Physical Stock</th>
+        <th>Stock Value (Selling Price)</th>
+        <th>Stock Value (Acquisition Cost)</th>
+        <th>Status</th>
+    </tr>
+</thead>
 
-            <tbody>
-                @forelse ($medicines as $m)
-                    @php
-                        $available = (int) $m->available_stock;
+<tbody>
+    @forelse ($medicines as $m)
+        @php
+            $available = (int) $m->available_stock;
 
-                        $status = $available <= 0
-                            ? 'Out of Stock'
-                            : ($available < 50 ? 'Low Stock' : 'OK');
-                    @endphp
+            $status = $available <= 0
+                ? 'Out of Stock'
+                : ($available < 50 ? 'Low Stock' : 'OK');
+        @endphp
 
-                    <tr>
-                        <td>{{ $m->generic_name }}</td>
-                        <td>{{ $m->brand_name ?? '—' }}</td>
-                        <td>{{ $m->dosage ?? '—' }}</td>
-                        <td>{{ $m->category ?? '—' }}</td>
-                        <td>{{ $available }}</td>
-                        <td>{{ $m->current_stock }}</td>
-                        <td>₱{{ number_format((float) $m->price, 2) }}</td>
-                        <td>
-                            ₱{{ number_format($available * (float) $m->price, 2) }}
-                        </td>
-                        <td>{{ $status }}</td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="9" class="empty">
-                            No inventory records found.
-                        </td>
-                    </tr>
-                @endforelse
-            </tbody>
+        <tr>
+            <td>{{ $m->generic_name }}</td>
+            <td>{{ $m->brand_name ?? '—' }}</td>
+            <td>{{ $m->dosage ?? '—' }}</td>
+            <td>{{ $m->category ?? '—' }}</td>
+            <td>{{ $available }}</td>
+            <td>{{ $m->current_stock }}</td>
+            <td>
+                ₱{{ number_format($available * (float) $m->price, 2) }}
+            </td>
+            <td>
+                ₱{{ number_format((float) $m->available_cost_value, 2) }}
+            </td>
+            <td>{{ $status }}</td>
+        </tr>
+    @empty
+        <tr>
+            <td colspan="9" class="empty">
+                No inventory records found.
+            </td>
+        </tr>
+    @endforelse
+</tbody>
+
         </table>
 
     @elseif ($tab === 'receiving')

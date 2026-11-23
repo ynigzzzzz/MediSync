@@ -63,9 +63,7 @@ class ReportController extends Controller
 
         if (
             $userId !== 'all'
-            && ! User::where('user_id', $userId)
-                ->where('role', '!=', 'admin')
-                ->exists()
+            && ! User::where('user_id', $userId)->exists()
         ) {
             throw ValidationException::withMessages([
                 'user_id' => 'The selected dispensing user is invalid.',
@@ -84,7 +82,35 @@ class ReportController extends Controller
 
     private function inventoryQuery(array $filters): Builder
     {
-        $query = Medicine::queryWithAvailableStock();
+        $today = now()->toDateString();
+
+        // Calculate the acquisition value of remaining,
+        // unexpired and undisposed stock per medicine.
+        $batchCostQuery = StockIn::query()
+            ->select('medicine_id')
+            ->selectRaw(
+                'COALESCE(SUM(remaining_quantity * cost_price), 0) AS available_cost_value',
+            )
+            ->where('remaining_quantity', '>', 0)
+            ->where('expiry_date', '>=', $today)
+            ->whereNull('disposed_at')
+            ->groupBy('medicine_id');
+
+        $query = Medicine::queryWithAvailableStock($today)
+            ->leftJoinSub(
+                $batchCostQuery,
+                'available_batch_costs',
+                function ($join) {
+                    $join->on(
+                        'medicines.medicine_id',
+                        '=',
+                        'available_batch_costs.medicine_id',
+                    );
+                },
+            )
+            ->selectRaw(
+                'COALESCE(available_batch_costs.available_cost_value, 0) AS available_cost_value',
+            );
 
         if ($filters['category'] !== 'all') {
             $query->where(
@@ -489,7 +515,7 @@ class ReportController extends Controller
                 'COALESCE(SUM(current_stock), 0) AS physical_units',
             )
             ->selectRaw(
-                'COALESCE(SUM(available_stock * price), 0) AS valuation',
+                'COALESCE(SUM(available_cost_value), 0) AS valuation',
             )
             ->first();
 
@@ -508,8 +534,7 @@ class ReportController extends Controller
                     'available_stock' => $availableStock,
                     'physical_stock' => (int) $medicine->current_stock,
                     'price' => (float) $medicine->price,
-                    'stock_value' => $availableStock
-                        * (float) $medicine->price,
+                    'stock_value' => (float) $medicine->available_cost_value,
                     'status' => $availableStock <= 0
                         ? 'out'
                         : ($availableStock < 50 ? 'low' : 'ok'),
@@ -649,8 +674,8 @@ class ReportController extends Controller
                 $filters['to'],
             ),
 
-            'users_list' => User::where('role', '!=', 'admin')
-                ->orderBy('full_name')
+            // Include administrators because they are also permitted to dispense.
+            'users_list' => User::orderBy('full_name')
                 ->get(['user_id', 'full_name']),
         ];
 
@@ -667,34 +692,6 @@ class ReportController extends Controller
         | Deletion History
         |--------------------------------------------------------------------------
         */
-
-        $typeMap = [
-            'DELETE_STOCK_IN' => 'Stock-In',
-            'DELETE_STOCK_OUT' => 'Stock-Out',
-            'DELETE_MEDICINE' => 'Medicine',
-            'DELETE_SUPPLIER' => 'Supplier',
-            'DELETE_USER' => 'User',
-        ];
-
-        $deletionsQuery = $this->deletionsQuery($filters);
-
-        $deletions = [
-            'total' => (clone $deletionsQuery)->count(),
-
-            'rows' => (clone $deletionsQuery)
-                ->orderByDesc('audit_log.created_at')
-                ->limit(500)
-                ->get()
-                ->map(fn ($row) => [
-                    'log_id' => $row->log_id,
-                    'type' => $typeMap[$row->action_type]
-                        ?? $row->action_type,
-                    'description' => $row->description,
-                    'reason' => $row->reason ?? '—',
-                    'user_name' => $row->user_name ?? 'System',
-                    'created_at' => $row->created_at,
-                ]),
-        ];
 
         $typeMap = [
             'DELETE_STOCK_IN' => 'Stock-In',
@@ -877,8 +874,8 @@ class ReportController extends Controller
                         'Category',
                         'Available Stock',
                         'Physical Stock',
-                        'Unit Price',
-                        'Stock Value',
+                        'Current Selling Price',
+                        'Stock Value (Acquisition Cost)',
                         'Status',
                     ]);
 
@@ -902,7 +899,7 @@ class ReportController extends Controller
                             $available,
                             $medicine->current_stock,
                             $medicine->price,
-                            $available * (float) $medicine->price,
+                            (float) $medicine->available_cost_value,
                             $status,
                         ]);
                     }
@@ -954,7 +951,7 @@ class ReportController extends Controller
                             'u.full_name as received_by',
                         )
                         ->selectRaw(
-                            "COALESCE(NULLIF(TRIM(s.name), ''), NULLIF(TRIM(stock_in.supplier), ''), 'Unspecified') AS supplier_name",
+                            'COALESCE(SUM(CASE WHEN COALESCE(available_stock, 0) <= 0 THEN 1 ELSE 0 END), 0) AS out_of_stock',
                         )
                         ->orderBy('stock_in.recorded_at')
                         ->cursor();
