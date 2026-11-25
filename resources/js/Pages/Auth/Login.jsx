@@ -22,7 +22,7 @@ const TEAM = [
     { name: "Xyza Paz", role: "Technical Writer · System Analyst" },
     { name: "Dahn Gabutero", role: "Database Administrator" },
     { name: "Renji Chatto", role: "Systems Administrator" },
-    { name: "Faith Magoncia", role: "Contributor" },
+    { name: "Vann Nadela", role: "Contributor" },
 ];
 
 const initials = (name) =>
