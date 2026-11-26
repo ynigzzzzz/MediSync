@@ -289,6 +289,33 @@ class Medicine extends Model
             $batchQuery->where('expiry_date', '<', $today);
         }
 
+        // These views display StockIn batches, so apply catalog filters
+        // through the related medicine instead of the unused medicine query.
+        if ($search !== '' || $category !== '' || $type !== '') {
+            $batchQuery->whereHas('medicine', function ($medicineQuery) use (
+                $search,
+                $category,
+                $type,
+            ) {
+                if ($search !== '') {
+                    $normalizedSearch = mb_strtolower($search);
+                    $medicineQuery->where(function ($query) use ($normalizedSearch) {
+                        $query
+                            ->whereRaw('LOWER(generic_name) LIKE ?', ["%{$normalizedSearch}%"])
+                            ->orWhereRaw('LOWER(brand_name) LIKE ?', ["%{$normalizedSearch}%"]);
+                    });
+                }
+
+                if ($category !== '') {
+                    $medicineQuery->where('category', $category);
+                }
+
+                if ($type !== '') {
+                    $medicineQuery->where('type', $type);
+                }
+            });
+        }
+
         return [
             'medicines' => self::query()
                 ->whereRaw('1 = 0')

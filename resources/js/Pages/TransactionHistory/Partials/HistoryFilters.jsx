@@ -1,28 +1,29 @@
-import { useEffect, useState } from 'react';
-import { router } from '@inertiajs/react';
+import { useEffect, useState } from "react";
+import { router } from "@inertiajs/react";
 
-const inputCls = 'w-full rounded-xl border border-transparent bg-gray-100 px-3 py-2 text-[14px] text-gray-900 placeholder-gray-400 transition-all focus:border-rose-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-100';
+const inputCls =
+    "w-full rounded-xl border border-transparent bg-gray-100 px-3 py-2 text-[14px] text-gray-900 placeholder-gray-400 transition-all focus:border-rose-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-100";
 
 const DEFAULT_FILTERS = {
-    search: '',
-    type: 'all',
-    date_from: '',
-    date_to: '',
-    user: 'all',
+    search: "",
+    type: "all",
+    date_from: "",
+    date_to: "",
+    user: "all",
 };
 
 export default function HistoryFilters({ users = [], initialFilters = {} }) {
     const [form, setForm] = useState({
         ...DEFAULT_FILTERS,
         ...initialFilters,
-        user: String(initialFilters.user ?? 'all'),
+        user: String(initialFilters.user ?? "all"),
     });
 
     useEffect(() => {
         setForm({
             ...DEFAULT_FILTERS,
             ...initialFilters,
-            user: String(initialFilters.user ?? 'all'),
+            user: String(initialFilters.user ?? "all"),
         });
     }, [initialFilters]);
 
@@ -36,7 +37,7 @@ export default function HistoryFilters({ users = [], initialFilters = {} }) {
     const applyFilters = (event) => {
         event.preventDefault();
 
-        router.get(route('transaction-history.index'), form, {
+        router.get(route("transaction-history.index"), form, {
             preserveState: true,
             preserveScroll: true,
             replace: true,
@@ -57,7 +58,9 @@ export default function HistoryFilters({ users = [], initialFilters = {} }) {
                     className={inputCls}
                     placeholder="Medicine, Patient, Supplier..."
                     value={form.search}
-                    onChange={(event) => updateFilter('search', event.target.value)}
+                    onChange={(event) =>
+                        updateFilter("search", event.target.value)
+                    }
                 />
             </div>
 
@@ -68,7 +71,9 @@ export default function HistoryFilters({ users = [], initialFilters = {} }) {
                 <select
                     className={inputCls}
                     value={form.type}
-                    onChange={(event) => updateFilter('type', event.target.value)}
+                    onChange={(event) =>
+                        updateFilter("type", event.target.value)
+                    }
                 >
                     <option value="all">All Types</option>
                     <option value="Stock-In">Stock-In</option>
@@ -84,7 +89,9 @@ export default function HistoryFilters({ users = [], initialFilters = {} }) {
                     type="date"
                     className={inputCls}
                     value={form.date_from}
-                    onChange={(event) => updateFilter('date_from', event.target.value)}
+                    onChange={(event) =>
+                        updateFilter("date_from", event.target.value)
+                    }
                 />
             </div>
 
@@ -96,7 +103,9 @@ export default function HistoryFilters({ users = [], initialFilters = {} }) {
                     type="date"
                     className={inputCls}
                     value={form.date_to}
-                    onChange={(event) => updateFilter('date_to', event.target.value)}
+                    onChange={(event) =>
+                        updateFilter("date_to", event.target.value)
+                    }
                 />
             </div>
 
@@ -107,7 +116,9 @@ export default function HistoryFilters({ users = [], initialFilters = {} }) {
                 <select
                     className={inputCls}
                     value={form.user}
-                    onChange={(event) => updateFilter('user', event.target.value)}
+                    onChange={(event) =>
+                        updateFilter("user", event.target.value)
+                    }
                 >
                     <option value="all">All Users</option>
                     {users.map((user) => (

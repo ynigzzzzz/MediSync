@@ -52,8 +52,16 @@ class NotificationService
 
         DB::transaction(function () use ($rows, $alerts) {
             foreach (array_chunk($rows, 500) as $chunk) {
-                DB::table('system_notifications')
-                    ->insertOrIgnore($chunk);
+                DB::table('system_notifications')->upsert(
+                    $chunk,
+                    ['user_id', 'dedupe_key'],
+                    [
+                        'type',
+                        'title',
+                        'message',
+                        'link',
+                    ],
+                );
             }
 
             $activeKeys = array_column($alerts, 'key');
@@ -72,6 +80,7 @@ class NotificationService
                 ->where('read_at', '<', now()->subDays(30))
                 ->delete();
         });
+
     }
 
     public static function syncThrottled(): void

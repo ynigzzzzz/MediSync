@@ -3,6 +3,7 @@ import { SearchableSelect } from "@/Components/ui/searchable-select";
 
 const inputCls =
     "w-full rounded-xl border border-transparent bg-[#F2F2F7] px-3 py-2.5 text-[14px] text-gray-900 placeholder-gray-400 focus:border-[#FF4D79] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#FF4D79]/20 transition-all";
+
 const lockedCls =
     "w-full rounded-xl border border-transparent bg-gray-100 px-3 py-2.5 text-[14px] text-gray-500 cursor-not-allowed";
 
@@ -13,6 +14,7 @@ export default function AddReceivingForm({ medicines, suppliers, onClose }) {
         medicine_id: "",
         supplier_id: "",
         batch_no: "",
+        invoice_no: "",
         dosage: "",
         expiry_date: "",
         delivery_date: "",
@@ -25,6 +27,7 @@ export default function AddReceivingForm({ medicines, suppliers, onClose }) {
         const med = medicines.find(
             (m) => String(m.medicine_id) === String(val),
         );
+
         setData((prevData) => ({
             ...prevData,
             medicine_id: val,
@@ -35,6 +38,7 @@ export default function AddReceivingForm({ medicines, suppliers, onClose }) {
 
     function submit(e) {
         e.preventDefault();
+
         post("/stock-receiving", {
             onSuccess: () => {
                 reset();
@@ -48,14 +52,18 @@ export default function AddReceivingForm({ medicines, suppliers, onClose }) {
             <h2 className="font-semibold text-gray-900 text-[15px] mb-5">
                 Record New Batch
             </h2>
+
             <form
                 onSubmit={submit}
                 className="grid grid-cols-1 md:grid-cols-3 gap-5"
             >
+                {/* Medicine */}
                 <div>
                     <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
-                        Medicine<span className="text-critical-red">*</span>
+                        Medicine
+                        <span className="text-critical-red">*</span>
                     </label>
+
                     <SearchableSelect
                         value={data.medicine_id}
                         onChange={handleMedicineChange}
@@ -65,16 +73,21 @@ export default function AddReceivingForm({ medicines, suppliers, onClose }) {
                         }))}
                         placeholder="Search medicine..."
                     />
+
                     {errors.medicine_id && (
                         <p className="text-red-500 text-[11px] mt-1">
                             {errors.medicine_id}
                         </p>
                     )}
                 </div>
+
+                {/* Supplier */}
                 <div>
                     <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
-                        Supplier<span className="text-critical-red">*</span>
+                        Supplier
+                        <span className="text-critical-red">*</span>
                     </label>
+
                     <SearchableSelect
                         value={data.supplier_id}
                         onChange={(val) => setData("supplier_id", val)}
@@ -84,23 +97,30 @@ export default function AddReceivingForm({ medicines, suppliers, onClose }) {
                         }))}
                         placeholder="Select supplier..."
                     />
+
                     {errors.supplier_id && (
                         <p className="text-red-500 text-[11px] mt-1">
                             {errors.supplier_id}
                         </p>
                     )}
                 </div>
+
+                {/* Batch Number */}
                 <div>
                     <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
-                        Batch No.<span className="text-critical-red">*</span>
+                        Batch No.
+                        <span className="text-critical-red">*</span>
                     </label>
+
                     <input
                         type="text"
+                        maxLength={50}
                         className={inputCls}
                         value={data.batch_no}
                         onChange={(e) => setData("batch_no", e.target.value)}
                         placeholder="e.g. BATCH-123"
                     />
+
                     {errors.batch_no && (
                         <p className="text-red-500 text-[11px] mt-1">
                             {errors.batch_no}
@@ -108,10 +128,37 @@ export default function AddReceivingForm({ medicines, suppliers, onClose }) {
                     )}
                 </div>
 
+                {/* Invoice Number */}
+                <div>
+                    <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
+                        Invoice Number
+                        <span className="text-gray-400 font-normal ml-1">
+                            (Optional)
+                        </span>
+                    </label>
+
+                    <input
+                        type="text"
+                        maxLength={50}
+                        className={inputCls}
+                        value={data.invoice_no}
+                        onChange={(e) => setData("invoice_no", e.target.value)}
+                        placeholder="e.g. INV-2026-001"
+                    />
+
+                    {errors.invoice_no && (
+                        <p className="text-red-500 text-[11px] mt-1">
+                            {errors.invoice_no}
+                        </p>
+                    )}
+                </div>
+
+                {/* Dosage */}
                 <div>
                     <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
                         Dosage
                     </label>
+
                     <input
                         type="text"
                         className={lockedCls}
@@ -120,27 +167,35 @@ export default function AddReceivingForm({ medicines, suppliers, onClose }) {
                         placeholder="Select a medicine first..."
                     />
                 </div>
+
+                {/* Expiry Date */}
                 <div>
                     <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
-                        Expiry Date<span className="text-critical-red">*</span>
+                        Expiry Date
+                        <span className="text-critical-red">*</span>
                     </label>
+
                     <input
                         type="date"
                         className={inputCls}
                         value={data.expiry_date}
                         onChange={(e) => setData("expiry_date", e.target.value)}
                     />
+
                     {errors.expiry_date && (
                         <p className="text-red-500 text-[11px] mt-1">
                             {errors.expiry_date}
                         </p>
                     )}
                 </div>
+
+                {/* Delivery Date */}
                 <div>
                     <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
                         Delivery Date
                         <span className="text-critical-red">*</span>
                     </label>
+
                     <input
                         type="date"
                         className={inputCls}
@@ -149,6 +204,7 @@ export default function AddReceivingForm({ medicines, suppliers, onClose }) {
                             setData("delivery_date", e.target.value)
                         }
                     />
+
                     {errors.delivery_date && (
                         <p className="text-red-500 text-[11px] mt-1">
                             {errors.delivery_date}
@@ -156,28 +212,36 @@ export default function AddReceivingForm({ medicines, suppliers, onClose }) {
                     )}
                 </div>
 
+                {/* Quantity */}
                 <div>
                     <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
-                        Quantity<span className="text-critical-red">*</span>
+                        Quantity
+                        <span className="text-critical-red">*</span>
                     </label>
+
                     <input
                         type="number"
                         min="1"
+                        step="1"
                         className={inputCls}
                         value={data.quantity}
                         onChange={(e) => setData("quantity", e.target.value)}
                         placeholder="0"
                     />
+
                     {errors.quantity && (
                         <p className="text-red-500 text-[11px] mt-1">
                             {errors.quantity}
                         </p>
                     )}
                 </div>
+
+                {/* Selling Price */}
                 <div>
                     <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
                         Selling Price (₱)
                     </label>
+
                     <input
                         type="number"
                         step="0.01"
@@ -187,11 +251,14 @@ export default function AddReceivingForm({ medicines, suppliers, onClose }) {
                         placeholder="Select a medicine first..."
                     />
                 </div>
+
+                {/* Cost Price */}
                 <div>
                     <label className="block text-[12px] font-semibold text-gray-700 mb-1.5">
                         Cost Price (₱)
                         <span className="text-critical-red">*</span>
                     </label>
+
                     <input
                         type="number"
                         step="0.01"
@@ -201,6 +268,7 @@ export default function AddReceivingForm({ medicines, suppliers, onClose }) {
                         onChange={(e) => setData("cost_price", e.target.value)}
                         placeholder="0.00"
                     />
+
                     {errors.cost_price && (
                         <p className="text-red-500 text-[11px] mt-1">
                             {errors.cost_price}
@@ -208,6 +276,7 @@ export default function AddReceivingForm({ medicines, suppliers, onClose }) {
                     )}
                 </div>
 
+                {/* Submit */}
                 <div className="md:col-span-3 flex justify-end mt-2">
                     <button
                         type="submit"
@@ -216,7 +285,7 @@ export default function AddReceivingForm({ medicines, suppliers, onClose }) {
                     >
                         {processing ? (
                             <>
-                                <i className="fas fa-circle-notch fa-spin mr-2" />{" "}
+                                <i className="fas fa-circle-notch fa-spin mr-2" />
                                 Recording...
                             </>
                         ) : (

@@ -1,15 +1,6 @@
 import { useState } from "react";
-import {
-    Card,
-    CardHeader,
-    CardTitle,
-    CardContent,
-} from "@/Components/ui/card";
-import {
-    Tabs,
-    TabsList,
-    TabsTrigger,
-} from "@/Components/ui/tabs";
+import { Card, CardHeader, CardTitle, CardContent } from "@/Components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/Components/ui/tabs";
 import StatCard from "@/Components/StatCard";
 import { DonutChart } from "@/Components/Charts/DonutChart";
 import { ReportLineChart } from "@/Components/ReportChart";
@@ -214,30 +205,28 @@ export default function ReceivingTab({
                                         </td>
                                     </tr>
                                 ) : (
-                                    receiving.by_supplier.map(
-                                        (row, index) => (
-                                            <tr
-                                                key={`${row.supplier}-${index}`}
-                                                className="hover:bg-gray-50/50 transition-colors"
-                                            >
-                                                <td className="px-4 py-3 text-gray-900 font-medium">
-                                                    {row.supplier}
-                                                </td>
+                                    receiving.by_supplier.map((row, index) => (
+                                        <tr
+                                            key={`${row.supplier}-${index}`}
+                                            className="hover:bg-gray-50/50 transition-colors"
+                                        >
+                                            <td className="px-4 py-3 text-gray-900 font-medium">
+                                                {row.supplier}
+                                            </td>
 
-                                                <td className="px-4 py-3 text-gray-600">
-                                                    {row.batches}
-                                                </td>
+                                            <td className="px-4 py-3 text-gray-600">
+                                                {row.batches}
+                                            </td>
 
-                                                <td className="px-4 py-3 text-gray-600">
-                                                    {row.units}
-                                                </td>
+                                            <td className="px-4 py-3 text-gray-600">
+                                                {row.units}
+                                            </td>
 
-                                                <td className="px-4 py-3 text-gray-600">
-                                                    {peso(row.cost)}
-                                                </td>
-                                            </tr>
-                                        ),
-                                    )
+                                            <td className="px-4 py-3 text-gray-600">
+                                                {peso(row.cost)}
+                                            </td>
+                                        </tr>
+                                    ))
                                 )}
                             </tbody>
                         </table>

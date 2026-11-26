@@ -1,4 +1,3 @@
-
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import { Link, usePage, Head } from "@inertiajs/react";
@@ -13,9 +12,7 @@ export default function AppLayout({ title, children }) {
 
             <nav className="navbar navbar-expand navbar-light bg-white border-bottom">
                 <div className="container-fluid px-4">
-                    <span className="navbar-brand fw-bold">
-                        MediSync
-                    </span>
+                    <span className="navbar-brand fw-bold">MediSync</span>
 
                     <div className="d-flex align-items-center gap-3 small">
                         {/* Profile Dropdown */}
@@ -26,7 +23,8 @@ export default function AppLayout({ title, children }) {
                                 data-bs-toggle="dropdown"
                                 aria-expanded="false"
                             >
-                                <span className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
+                                <span
+                                    className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
                                     style={{
                                         width: "32px",
                                         height: "32px",
@@ -91,9 +89,7 @@ export default function AppLayout({ title, children }) {
                 </div>
             </nav>
 
-            <main className="container-fluid px-4 py-4">
-                {children}
-            </main>
+            <main className="container-fluid px-4 py-4">{children}</main>
         </div>
     );
 }

@@ -1,15 +1,6 @@
 import { useState } from "react";
-import {
-    Card,
-    CardHeader,
-    CardTitle,
-    CardContent,
-} from "@/Components/ui/card";
-import {
-    Tabs,
-    TabsList,
-    TabsTrigger,
-} from "@/Components/ui/tabs";
+import { Card, CardHeader, CardTitle, CardContent } from "@/Components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/Components/ui/tabs";
 import StatCard from "@/Components/StatCard";
 import { BarChart } from "@/Components/Charts/BarChart";
 import { ReportLineChart } from "@/Components/ReportChart";
@@ -28,11 +19,7 @@ function peso(n) {
     );
 }
 
-export default function DispensingTab({
-    dispensing,
-    userId,
-    onUserChange,
-}) {
+export default function DispensingTab({ dispensing, userId, onUserChange }) {
     const [dispTab, setDispTab] = useState("summary");
 
     return (
@@ -122,7 +109,10 @@ export default function DispensingTab({
 
                         <CardContent>
                             <BarChart
-                                data={(dispensing.by_medicine || []).slice(0, 5)}
+                                data={(dispensing.by_medicine || []).slice(
+                                    0,
+                                    5,
+                                )}
                                 xKey="name"
                                 yKey="units"
                                 label="Units"

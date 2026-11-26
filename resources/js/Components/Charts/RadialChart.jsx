@@ -5,19 +5,11 @@ import {
     PolarAngleAxis,
 } from "recharts";
 
-export function RadialChart({
-    data,
-    label,
-    value,
-    color = "#2E7D64",
-}) {
+export function RadialChart({ data, label, value, color = "#2E7D64" }) {
     const safeData = Array.isArray(data)
         ? data.map((item) => ({
               ...item,
-              value: Math.min(
-                  100,
-                  Math.max(0, Number(item.value) || 0),
-              ),
+              value: Math.min(100, Math.max(0, Number(item.value) || 0)),
           }))
         : [];
 

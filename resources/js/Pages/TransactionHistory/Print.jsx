@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
-import { Head } from '@inertiajs/react';
-import HistoryTable from '@/Pages/TransactionHistory/Partials/HistoryTable';
+import { useEffect } from "react";
+import { Head } from "@inertiajs/react";
+import HistoryTable from "@/Pages/TransactionHistory/Partials/HistoryTable";
 
 export default function Print({
     transactions = [],
@@ -18,8 +18,10 @@ export default function Print({
     const filterLabels = [];
 
     if (filters.search) filterLabels.push(`Search: "${filters.search}"`);
-    if (filters.type && filters.type !== 'all') filterLabels.push(`Type: ${filters.type}`);
-    if (filters.user && filters.user !== 'all') filterLabels.push(`User ID: ${filters.user}`);
+    if (filters.type && filters.type !== "all")
+        filterLabels.push(`Type: ${filters.type}`);
+    if (filters.user && filters.user !== "all")
+        filterLabels.push(`User ID: ${filters.user}`);
     if (filters.date_from) filterLabels.push(`From: ${filters.date_from}`);
     if (filters.date_to) filterLabels.push(`To: ${filters.date_to}`);
 
@@ -88,17 +90,20 @@ export default function Print({
             <main className="print-page mx-auto max-w-[1400px] bg-white p-6 text-gray-900">
                 <div className="mb-5 flex items-start justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold">MediSync — Transaction History</h1>
+                        <h1 className="text-2xl font-bold">
+                            MediSync — Transaction History
+                        </h1>
                         <p className="mt-1 text-sm text-gray-500">
                             Generated: {generatedAt}
                         </p>
                         <p className="mt-1 text-xs text-gray-500">
                             {filterLabels.length
-                                ? `Filters: ${filterLabels.join(' · ')}`
-                                : 'Filters: All transactions'}
+                                ? `Filters: ${filterLabels.join(" · ")}`
+                                : "Filters: All transactions"}
                         </p>
                         <p className="mt-1 text-xs text-gray-500">
-                            {transactions.length.toLocaleString()} transaction(s)
+                            {transactions.length.toLocaleString()}{" "}
+                            transaction(s)
                         </p>
                     </div>
 
@@ -121,7 +126,10 @@ export default function Print({
                     </div>
                 </div>
 
-                <HistoryTable transactions={transactions} showPagination={false} />
+                <HistoryTable
+                    transactions={transactions}
+                    showPagination={false}
+                />
             </main>
         </>
     );

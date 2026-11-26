@@ -9,25 +9,76 @@ class StoreStockInRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return in_array($this->user()?->role, ['admin', 'pharmacist'], true);
+        return in_array(
+            $this->user()?->role,
+            ['admin', 'pharmacist'],
+            true,
+        );
     }
 
     public function rules(): array
     {
         return [
-            'medicine_id' => ['required', 'integer', 'exists:medicines,medicine_id'],
-            'quantity' => ['required', 'integer', 'min:1'],
-            'batch_no' => ['required', 'string', 'max:50'],
-            'expiry_date' => ['required', 'date', 'after:today'],
+            'medicine_id' => [
+                'required',
+                'integer',
+                'exists:medicines,medicine_id',
+            ],
+
+            'quantity' => [
+                'required',
+                'integer',
+                'min:1',
+            ],
+
+            'batch_no' => [
+                'required',
+                'string',
+                'max:50',
+            ],
+
+            'invoice_no' => [
+                'nullable',
+                'string',
+                'max:50',
+            ],
+
+            'expiry_date' => [
+                'required',
+                'date',
+                'after:today',
+            ],
+
             'supplier_id' => [
                 'required',
                 'integer',
-                Rule::exists('suppliers', 'supplier_id')->where('status', 'active'),
+                Rule::exists('suppliers', 'supplier_id')
+                    ->where('status', 'active'),
             ],
-            'delivery_date' => ['required', 'date', 'before_or_equal:expiry_date'],
-            'cost_price' => ['required', 'numeric', 'min:0.01'],
-            'sell_price' => ['nullable', 'numeric', 'min:0'],
-            'dosage' => ['nullable', 'string', 'max:50'],
+
+            'delivery_date' => [
+                'required',
+                'date',
+                'before_or_equal:expiry_date',
+            ],
+
+            'cost_price' => [
+                'required',
+                'numeric',
+                'min:0.01',
+            ],
+
+            'sell_price' => [
+                'nullable',
+                'numeric',
+                'min:0',
+            ],
+
+            'dosage' => [
+                'nullable',
+                'string',
+                'max:50',
+            ],
         ];
     }
 
@@ -35,8 +86,12 @@ class StoreStockInRequest extends FormRequest
     {
         return [
             'supplier_id.required' => 'Please select a supplier from the Suppliers module.',
+
             'supplier_id.exists' => 'The selected supplier is not active or does not exist.',
+
             'delivery_date.before_or_equal' => 'The delivery date cannot be after the expiry date.',
+
+            'invoice_no.max' => 'The invoice number cannot exceed 50 characters.',
         ];
     }
 }

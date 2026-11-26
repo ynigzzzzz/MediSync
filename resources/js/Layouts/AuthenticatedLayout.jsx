@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
-import { Link, usePage } from '@inertiajs/react';
-import { Toaster, toast } from 'sonner';
-import NotificationBell from '@/Components/NotificationBell';
-import StockMoveIcon from '@/Components/StockMoveIcon';
+import { useEffect } from "react";
+import { Link, usePage } from "@inertiajs/react";
+import { Toaster, toast } from "sonner";
+import NotificationBell from "@/Components/NotificationBell";
+import StockMoveIcon from "@/Components/StockMoveIcon";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -10,15 +10,24 @@ import {
     DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from '@/Components/ui/dropdown-menu';
-import { cn } from '@/lib/utils';
+} from "@/Components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-    { href: '/dashboard', label: 'Dashboard', icon: 'fa-tachometer-alt' },
-    { href: '/medicine-list', label: 'Medicine Catalog', icon: 'fa-capsules' },
-    { href: '/stock-receiving', label: 'Stock Receiving', stock: 'in', hideFor: ['assistant'] },
-    { href: '/dispensing', label: 'Stock Dispensing', stock: 'out' },
-    { href: '/transaction-history', label: 'Transaction History', icon: 'fa-history' },
+    { href: "/dashboard", label: "Dashboard", icon: "fa-tachometer-alt" },
+    { href: "/medicine-list", label: "Medicine Catalog", icon: "fa-capsules" },
+    {
+        href: "/stock-receiving",
+        label: "Stock Receiving",
+        stock: "in",
+        hideFor: ["assistant"],
+    },
+    { href: "/dispensing", label: "Stock Dispensing", stock: "out" },
+    {
+        href: "/transaction-history",
+        label: "Transaction History",
+        icon: "fa-history",
+    },
 ];
 
 export default function AuthenticatedLayout({ children }) {
@@ -38,10 +47,10 @@ export default function AuthenticatedLayout({ children }) {
         const isActive = currentPath.startsWith(href);
 
         return cn(
-            'flex items-center rounded-xl px-4 py-2.5 text-[13px] font-medium transition-all duration-300',
+            "flex items-center rounded-xl px-4 py-2.5 text-[13px] font-medium transition-all duration-300",
             isActive
-                ? 'bg-white text-[#FF4D79] shadow-sm'
-                : 'text-gray-600 hover:bg-white/50 hover:text-gray-900',
+                ? "bg-white text-[#FF4D79] shadow-sm"
+                : "text-gray-600 hover:bg-white/50 hover:text-gray-900",
         );
     };
 
@@ -49,7 +58,6 @@ export default function AuthenticatedLayout({ children }) {
         <>
             {/* Fixed application shell: the document itself cannot scroll */}
             <div className="fixed inset-0 z-0 flex h-screen w-screen gap-3 overflow-hidden bg-[#F5F5F7] p-3 font-sans">
-
                 <Toaster
                     position="top-right"
                     richColors
@@ -59,7 +67,6 @@ export default function AuthenticatedLayout({ children }) {
 
                 {/* SIDEBAR: Always stationary */}
                 <aside className="flex h-full min-h-0 w-[240px] shrink-0 flex-col overflow-hidden rounded-[20px] border border-white/50 bg-gradient-to-b from-[#FFF0F5] via-[#FFE4EE] to-[#FFD6E7] shadow-sm">
-
                     <div className="flex shrink-0 items-center gap-2.5 p-5 pb-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#FFB7CE] to-[#FF4D79] shadow-sm">
                             <i className="fas fa-prescription-bottle-medical text-sm text-white" />
@@ -89,42 +96,44 @@ export default function AuthenticatedLayout({ children }) {
                                         <StockMoveIcon direction={item.stock} />
                                     </span>
                                 ) : (
-                                    <i className={`fas ${item.icon} mr-2 w-5 text-center opacity-70`} />
+                                    <i
+                                        className={`fas ${item.icon} mr-2 w-5 text-center opacity-70`}
+                                    />
                                 )}
                                 {item.label}
                             </Link>
                         ))}
 
-                        {(role === 'admin' || role === 'pharmacist') && (
+                        {(role === "admin" || role === "pharmacist") && (
                             <div className="pb-1 pt-2">
                                 <div className="mx-2 h-px bg-gray-300/30" />
                             </div>
                         )}
 
-                        {(role === 'admin' || role === 'pharmacist') && (
+                        {(role === "admin" || role === "pharmacist") && (
                             <Link
                                 href="/suppliers"
-                                className={linkClasses('/suppliers')}
+                                className={linkClasses("/suppliers")}
                             >
                                 <i className="fas fa-truck mr-2 w-5 text-center opacity-70" />
                                 Suppliers
                             </Link>
                         )}
 
-                        {role === 'admin' && (
+                        {role === "admin" && (
                             <Link
                                 href="/reports"
-                                className={linkClasses('/reports')}
+                                className={linkClasses("/reports")}
                             >
                                 <i className="fas fa-chart-pie mr-2 w-5 text-center opacity-70" />
                                 Reports
                             </Link>
                         )}
 
-                        {role === 'admin' && (
+                        {role === "admin" && (
                             <Link
                                 href="/user-management"
-                                className={linkClasses('/user-management')}
+                                className={linkClasses("/user-management")}
                             >
                                 <i className="fas fa-users mr-2 w-5 text-center opacity-70" />
                                 User Management
@@ -135,17 +144,15 @@ export default function AuthenticatedLayout({ children }) {
 
                 {/* MAIN AREA */}
                 <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-
                     {/* HEADER: Always stationary */}
                     <header className="z-30 mb-3 flex shrink-0 items-center justify-end gap-3 rounded-[16px] border border-gray-100 bg-white px-4 py-2.5 shadow-sm">
-
                         <Link
                             href="/contact"
                             className={cn(
-                                'flex h-8 w-8 items-center justify-center rounded-full text-xs transition-colors',
-                                currentPath.startsWith('/contact')
-                                    ? 'bg-[#FF4D79] text-white shadow-sm'
-                                    : 'bg-[#F2F2F7] text-gray-500 hover:bg-gray-200',
+                                "flex h-8 w-8 items-center justify-center rounded-full text-xs transition-colors",
+                                currentPath.startsWith("/contact")
+                                    ? "bg-[#FF4D79] text-white shadow-sm"
+                                    : "bg-[#F2F2F7] text-gray-500 hover:bg-gray-200",
                             )}
                         >
                             <i className="fas fa-headset" />
@@ -226,11 +233,9 @@ export default function AuthenticatedLayout({ children }) {
 
                     {/* CONTENT: The ONLY main page scroll container */}
                     <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain rounded-[16px] px-2 pb-4 scrollbar-hide">
-
                         <div className="mx-auto w-full max-w-[1150px] space-y-4">
                             {children}
                         </div>
-
                     </main>
                 </div>
             </div>

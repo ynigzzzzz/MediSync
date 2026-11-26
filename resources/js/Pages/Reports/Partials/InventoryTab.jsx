@@ -1,15 +1,6 @@
 import { useState } from "react";
-import {
-    Card,
-    CardHeader,
-    CardTitle,
-    CardContent,
-} from "@/Components/ui/card";
-import {
-    Tabs,
-    TabsList,
-    TabsTrigger,
-} from "@/Components/ui/tabs";
+import { Card, CardHeader, CardTitle, CardContent } from "@/Components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/Components/ui/tabs";
 import StatCard from "@/Components/StatCard";
 import Badge from "@/Components/Badge";
 import { RadialChart } from "@/Components/Charts/RadialChart";
@@ -36,14 +27,14 @@ export default function InventoryTab({
 
     const selectedCategory = category || "all";
 
-    const healthPercentage = inventory.total_medicines > 0
-        ? Math.round(
-            (
-                (inventory.total_medicines - inventory.out_of_stock)
-                / inventory.total_medicines
-            ) * 100,
-        )
-        : 0;
+    const healthPercentage =
+        inventory.total_medicines > 0
+            ? Math.round(
+                  ((inventory.total_medicines - inventory.out_of_stock) /
+                      inventory.total_medicines) *
+                      100,
+              )
+            : 0;
 
     return (
         <div className="mt-0">
@@ -152,7 +143,6 @@ export default function InventoryTab({
                                         >
                                             <td className="px-4 py-3 text-gray-900 font-medium">
                                                 {row.generic_name}{" "}
-
                                                 {row.brand_name && (
                                                     <span className="text-[11px] font-normal text-gray-400">
                                                         ({row.brand_name})

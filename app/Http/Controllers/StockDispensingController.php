@@ -68,17 +68,16 @@ class StockDispensingController extends Controller
 
         $userId = $request->user()->user_id;
 
-        $dispensedItems = [];
-
-        $totalValue = 0;
-
         try {
-            DB::transaction(function () use (
+            $result = DB::transaction(function () use (
                 $validated,
                 $userId,
-                &$dispensedItems,
-                &$totalValue
             ) {
+                // Keep retry-sensitive values inside the callback. Laravel may
+                // execute this closure more than once after a deadlock retry.
+                $dispensedItems = [];
+                $totalValue = 0;
+
                 foreach ($validated['items'] as $item) {
                     $medicine = Medicine::where(
                         'medicine_id',
@@ -100,7 +99,6 @@ class StockDispensingController extends Controller
                     );
 
                     $totalValue += $itemTotal;
-
                     $dispensedItems[] =
                         "{$item['quantity']} x {$medicine->generic_name}";
                 }
@@ -112,6 +110,10 @@ class StockDispensingController extends Controller
                     ' to patient: '.
                     ($validated['patient_name'] ?? 'Walk-in'),
                 );
+
+                return [
+                    'total_value' => $totalValue,
+                ];
             }, 3);
         } catch (\Exception $e) {
             return back()->withErrors([
@@ -122,7 +124,7 @@ class StockDispensingController extends Controller
         return back()->with(
             'success',
             'Dispensed successfully! Total: '.
-            "\u{20B1}".number_format($totalValue, 2),
+            "\u{20B1}".number_format($result['total_value'], 2),
         );
     }
 

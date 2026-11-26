@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Medicine;
 use App\Models\StockIn;
 use App\Models\StockOut;
+use App\Models\Supplier;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -61,6 +62,53 @@ class ReportsTest extends TestCase
                     $admin->user_id,
                 ),
             );
+    }
+
+    public function test_stock_receiving_preserves_the_actual_invoice_number(): void
+    {
+        $pharmacist = User::factory()->create([
+            'role' => 'pharmacist',
+        ]);
+
+        $medicine = Medicine::create([
+            'generic_name' => 'Invoice Test Medicine',
+            'brand_name' => 'Invoice Brand',
+            'type' => 'Tablet',
+            'category' => 'Test',
+            'dosage' => '500mg',
+            'price' => 15.00,
+            'current_stock' => 0,
+        ]);
+
+        $supplier = Supplier::create([
+            'name' => 'Invoice Test Supplier',
+            'status' => 'active',
+        ]);
+
+        $invoiceNo = 'INV-MEDISYNC-2026-001';
+
+        $this->actingAs($pharmacist)
+            ->post('/stock-receiving', [
+                'medicine_id' => $medicine->medicine_id,
+                'supplier_id' => $supplier->supplier_id,
+                'quantity' => 5,
+                'batch_no' => 'INVOICE-TEST-001',
+                'invoice_no' => $invoiceNo,
+                'expiry_date' => now()->addDays(30)->toDateString(),
+                'delivery_date' => now()->toDateString(),
+                'cost_price' => 10.00,
+                'sell_price' => 15.00,
+                'dosage' => '500mg',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('stock_in', [
+            'batch_no' => 'INVOICE-TEST-001',
+            'invoice_no' => $invoiceNo,
+            'supplier_id' => $supplier->supplier_id,
+            'quantity' => 5,
+            'cost_price' => 10.00,
+        ]);
     }
 
     /**
@@ -280,5 +328,125 @@ class ReportsTest extends TestCase
         ]);
 
         return $medicine;
+    }
+
+    public function test_gross_profit_excludes_dispensing_without_verified_batch_cost(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $medicine = Medicine::create([
+            'generic_name' => 'Gross Profit Test Medicine',
+            'brand_name' => 'GP Test Brand',
+            'type' => 'Tablet',
+            'category' => 'Test',
+            'dosage' => '500mg',
+            'price' => 10.00,
+            'current_stock' => 0,
+        ]);
+
+        // Valid batch: 4 units at ₱3.00 acquisition cost.
+        $costedBatch = StockIn::create([
+            'medicine_id' => $medicine->medicine_id,
+            'quantity' => 4,
+            'batch_no' => 'GP-COSTED-001',
+            'expiry_date' => now()->addYear()->toDateString(),
+            'cost_price' => 3.00,
+            'remaining_quantity' => 0,
+        ]);
+
+        // Zero-cost batch: must not count as verified COGS.
+        $zeroCostBatch = StockIn::create([
+            'medicine_id' => $medicine->medicine_id,
+            'quantity' => 2,
+            'batch_no' => 'GP-ZERO-COST-001',
+            'expiry_date' => now()->addYear()->toDateString(),
+            'cost_price' => 0,
+            'remaining_quantity' => 0,
+        ]);
+
+        // Four costed units: ₱40 revenue, ₱12 COGS.
+        StockOut::create([
+            'medicine_id' => $medicine->medicine_id,
+            'quantity' => 4,
+            'dosage' => '500mg',
+            'patient_name' => 'Costed Patient',
+            'prescription_no' => 'GP-RX-001',
+            'dispensed_by' => $admin->user_id,
+            'price' => 10.00,
+            'stock_in_id' => $costedBatch->stock_in_id,
+        ]);
+
+        // Two units with zero acquisition cost: excluded.
+        StockOut::create([
+            'medicine_id' => $medicine->medicine_id,
+            'quantity' => 2,
+            'dosage' => '500mg',
+            'patient_name' => 'Uncosted Patient',
+            'prescription_no' => 'GP-RX-002',
+            'dispensed_by' => $admin->user_id,
+            'price' => 10.00,
+            'stock_in_id' => $zeroCostBatch->stock_in_id,
+        ]);
+
+        // One unit without an original batch reference: excluded.
+        StockOut::create([
+            'medicine_id' => $medicine->medicine_id,
+            'quantity' => 1,
+            'dosage' => '500mg',
+            'patient_name' => 'Legacy Patient',
+            'prescription_no' => 'GP-RX-003',
+            'dispensed_by' => $admin->user_id,
+            'price' => 10.00,
+            'stock_in_id' => null,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('reports.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Reports/Index')
+
+                ->where(
+                    'overall.total_revenue',
+                    fn ($value) => abs((float) $value - 70.00) < 0.001,
+                )
+
+                ->where(
+                    'overall.costed_revenue',
+                    fn ($value) => abs((float) $value - 40.00) < 0.001,
+                )
+
+                ->where(
+                    'overall.uncosted_revenue',
+                    fn ($value) => abs((float) $value - 30.00) < 0.001,
+                )
+
+                ->where(
+                    'overall.cogs',
+                    fn ($value) => abs((float) $value - 12.00) < 0.001,
+                )
+
+                ->where(
+                    'overall.profit',
+                    fn ($value) => abs((float) $value - 28.00) < 0.001,
+                )
+
+                ->where('overall.costed_dispensed_units', 4)
+                ->where('overall.uncosted_dispensed_units', 3)
+
+                ->where(
+                    'overall.cogs_coverage_percentage',
+                    fn ($value) => abs((float) $value - 57.1) < 0.001,
+                )
+
+                ->where(
+                    'overall.cogs_revenue_coverage_percentage',
+                    fn ($value) => abs((float) $value - 57.1) < 0.001,
+                )
+
+                ->where('overall.profit_is_partial', true),
+            );
     }
 }

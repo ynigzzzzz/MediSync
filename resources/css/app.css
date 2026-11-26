@@ -6,7 +6,7 @@
     :root {
         /* shadcn tokens, mapped to the MediSync palette */
         --background: 0 0% 100%;
-        --foreground: 210 29% 24%;              /* charcoal-blue #2C3E50 */
+        --foreground: 210 29% 24%; /* charcoal-blue #2C3E50 */
 
         --card: 0 0% 100%;
         --card-foreground: 210 29% 24%;
@@ -14,30 +14,30 @@
         --popover: 0 0% 100%;
         --popover-foreground: 210 29% 24%;
 
-        --primary: 341 100% 86%;                 /* cherry-blossom #FFB7CE */
+        --primary: 341 100% 86%; /* cherry-blossom #FFB7CE */
         --primary-foreground: 210 29% 24%;
 
-        --secondary: 343 27% 36%;                /* burnt-rose #764248 */
+        --secondary: 343 27% 36%; /* burnt-rose #764248 */
         --secondary-foreground: 0 0% 100%;
 
-        --muted: 72 24% 85%;                     /* eggshell #DFE2CF */
+        --muted: 72 24% 85%; /* eggshell #DFE2CF */
         --muted-foreground: 210 29% 24%;
 
-        --accent: 341 100% 96%;                  /* pale cherry tint */
+        --accent: 341 100% 96%; /* pale cherry tint */
         --accent-foreground: 210 29% 24%;
 
-        --destructive: 354 70% 54%;              /* critical-red #DC3545 */
+        --destructive: 354 70% 54%; /* critical-red #DC3545 */
         --destructive-foreground: 0 0% 100%;
 
-        --success: 165 46% 34%;                  /* success-green #2E7D64 */
+        --success: 165 46% 34%; /* success-green #2E7D64 */
         --success-foreground: 0 0% 100%;
 
-        --warning: 28 78% 52%;                   /* warning-orange #E67E22 */
+        --warning: 28 78% 52%; /* warning-orange #E67E22 */
         --warning-foreground: 0 0% 100%;
 
-        --border: 72 24% 85%;                    /* eggshell */
+        --border: 72 24% 85%; /* eggshell */
         --input: 72 24% 85%;
-        --ring: 341 100% 86%;                    /* cherry-blossom focus ring */
+        --ring: 341 100% 86%; /* cherry-blossom focus ring */
 
         --radius: 15px;
     }
@@ -48,8 +48,8 @@
         @apply border-border;
     }
     body {
-    @apply bg-[#F5F5F7] text-foreground;
-}
+        @apply bg-[#F5F5F7] text-foreground;
+    }
 }
 
 /* Keep the user's original hidden-scrollbar choice */

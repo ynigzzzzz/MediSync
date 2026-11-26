@@ -162,10 +162,7 @@ class StockIn extends Model
                     'batch_no' => $b->batch_no,
                     'expiry_date' => $b->expiry_date,
                     'remaining_quantity' => $b->remaining_quantity,
-                    'days_left' => (int) now()->diffInDays(
-                        $b->expiry_date,
-                        false,
-                    ),
+                    'days_left' => $b->days_left,
                 ]),
         ];
     }
@@ -177,6 +174,7 @@ class StockIn extends Model
         int $userId,
     ): self {
         return DB::transaction(function () use ($data, $userId) {
+
             $supplier = Supplier::where(
                 'supplier_id',
                 $data['supplier_id'],
@@ -190,8 +188,6 @@ class StockIn extends Model
                 ]);
             }
 
-            $data['supplier'] = $supplier->name;
-
             $medicine = Medicine::where(
                 'medicine_id',
                 $data['medicine_id'],
@@ -199,11 +195,13 @@ class StockIn extends Model
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            // Update aggregate inventory.
             $medicine->increment(
                 'current_stock',
                 $data['quantity'],
             );
 
+            // Update the medicine's current selling price when provided.
             $updates = [];
 
             if (
@@ -224,26 +222,36 @@ class StockIn extends Model
                 $medicine->update($updates);
             }
 
+            // Preserve the actual invoice number.
+            $invoiceNo = trim((string) ($data['invoice_no'] ?? ''));
+
+            // Create the receiving batch.
             $batch = self::create([
                 'medicine_id' => $data['medicine_id'],
                 'quantity' => $data['quantity'],
                 'batch_no' => $data['batch_no'],
                 'expiry_date' => $data['expiry_date'],
-                'supplier' => $data['supplier'] ?? null,
-                'supplier_id' => $data['supplier_id'] ?? null,
+
+                'supplier' => $supplier->name,
+                'supplier_id' => $supplier->supplier_id,
+
                 'received_by' => $userId,
                 'delivery_date' => $data['delivery_date'],
-                'invoice_no' => 'N/A',
+
+                'invoice_no' => $invoiceNo !== ''
+                    ? $invoiceNo
+                    : null,
+
                 'cost_price' => $data['cost_price'],
                 'selling_price' => $data['sell_price'] ?? 0,
+
                 'remaining_quantity' => $data['quantity'],
             ]);
 
-            // Keep the receiving record and its audit entry in one transaction.
             AuditLog::record(
                 $userId,
                 'STOCK_IN',
-                "Added {$data['quantity']} units of {$medicine->generic_name} (supplier: ".($data['supplier'] ?? 'N/A').')',
+                "Added {$data['quantity']} units of {$medicine->generic_name} (supplier: {$supplier->name})",
                 (int) $batch->stock_in_id,
             );
 

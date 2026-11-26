@@ -3,12 +3,7 @@ import { Head, router } from "@inertiajs/react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import StatCard from "@/Components/StatCard";
 
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-} from "@/Components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
 
 import { StackedBarChart } from "@/Components/Charts/StackedBarChart";
 import { DonutChart } from "@/Components/Charts/DonutChart";
@@ -74,6 +69,7 @@ export default function Index({
 
     const [timeRange, setTimeRange] = useState("14d");
 
+    // Daily activity filter
     const filteredActivity = useMemo(() => {
         if (!activity) return [];
 
@@ -88,19 +84,58 @@ export default function Index({
         return activity;
     }, [activity, timeRange]);
 
+    // Category data
     const categories = Array.isArray(categoryBreakdown)
         ? categoryBreakdown
         : [];
 
-    const healthPercentage = Number(
-        inventoryHealth?.percentage ?? 0,
+    // Display only the top 5 categories.
+    // Combine all remaining categories into Others.
+    const topCategories = useMemo(() => {
+        const sorted = [...categories].sort(
+            (a, b) => Number(b.value ?? 0) - Number(a.value ?? 0),
+        );
+
+        const topFive = sorted.slice(0, 5);
+        const remaining = sorted.slice(5);
+
+        if (remaining.length === 0) {
+            return topFive;
+        }
+
+        const othersValue = remaining.reduce(
+            (total, item) => total + Number(item.value ?? 0),
+            0,
+        );
+
+        const othersPercentage = remaining.reduce(
+            (total, item) => total + Number(item.percentage ?? 0),
+            0,
+        );
+
+        return [
+            ...topFive,
+            {
+                name: "Others",
+                value: othersValue,
+                percentage: othersPercentage,
+                fill: "#94A3B8",
+            },
+        ];
+    }, [categories]);
+
+    // Inventory health
+    const healthPercentage = Math.min(
+        100,
+        Math.max(0, Number(inventoryHealth?.percentage ?? 0)),
     );
 
     return (
         <AuthenticatedLayout>
             <Head title="Dashboard" />
 
-            <div className="overflow-x-hidden">
+            <div className="w-full min-w-0 overflow-x-hidden">
+                {/* PAGE HEADER */}
                 <div className="mb-5">
                     <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
                         Dashboard
@@ -111,7 +146,7 @@ export default function Index({
                     </p>
                 </div>
 
-                {/* Statistics */}
+                {/* STATISTICS */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <StatCard
                         icon="fa-capsules"
@@ -196,22 +231,22 @@ export default function Index({
                     />
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* NEEDS ATTENTION AND DAILY ACTIVITY */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
                     <NeedsAttentionList attention={attention} />
 
-                    {/* Daily Intake vs Outtake */}
-                    <Card className="lg:col-span-2">
+                    {/* DAILY INTAKE VS OUTTAKE */}
+                    <Card className="lg:col-span-2 min-w-0">
                         <CardHeader className="pb-2 flex flex-row items-center justify-between">
                             <div>
-                                <CardTitle>
-                                    Daily Intake vs Outtake
-                                </CardTitle>
+                                <CardTitle>Daily Intake vs Outtake</CardTitle>
                             </div>
 
                             <div className="flex bg-gray-100 p-1 rounded-lg">
                                 {["7d", "14d", "30d"].map((range) => (
                                     <button
                                         key={range}
+                                        type="button"
                                         onClick={() => setTimeRange(range)}
                                         className={cn(
                                             "px-3 py-1 text-[11px] font-semibold rounded-md transition-all",
@@ -230,39 +265,48 @@ export default function Index({
                             <StackedBarChart data={filteredActivity} />
                         </CardContent>
                     </Card>
+                </div>
 
-                    {/* Dynamic Category Breakdown */}
-                    <Card className="lg:col-span-2">
+                {/* CATEGORY BREAKDOWN AND INVENTORY HEALTH */}
+                {/* IMPORTANT: This is a separate grid. */}
+
+                {/* CATEGORY BREAKDOWN AND INVENTORY HEALTH */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 items-stretch gap-4 mb-4">
+                    {/* CATEGORY BREAKDOWN */}
+                    <Card className="lg:col-span-2 min-w-0 h-full flex flex-col">
                         <CardHeader className="pb-2">
-                            <CardTitle>
-                                Category Breakdown
-                            </CardTitle>
+                            <CardTitle>Category Breakdown</CardTitle>
 
                             <p className="text-xs text-gray-500">
-                                Distribution of medicines by category.
+                                Top 5 categories by number of medicines.
                             </p>
                         </CardHeader>
 
-                        <CardContent className="flex items-center">
-                            {categories.length > 0 ? (
+                        <CardContent className="flex flex-1 flex-col sm:flex-row sm:items-center gap-4">
+                            {topCategories.length > 0 ? (
                                 <>
-                                    <div className="w-1/2 min-w-0">
+                                    {/* DONUT CHART */}
+                                    <div className="w-full sm:w-[42%] min-w-0">
                                         <DonutChart
-                                            data={categories}
+                                            data={topCategories}
+                                            innerRadius={65}
+                                            outerRadius={85}
                                         />
                                     </div>
 
-                                    <div className="w-1/2 space-y-3 pl-4">
-                                        {categories.map((item) => (
+                                    {/* CATEGORY LEGEND */}
+                                    <div className="w-full sm:w-[58%] min-w-0 space-y-3">
+                                        {topCategories.map((item) => (
                                             <div
                                                 key={item.name}
-                                                className="flex items-center justify-between gap-2 text-[13px]"
+                                                className="flex items-center justify-between gap-3 text-[13px]"
                                             >
                                                 <div className="flex items-center gap-2 min-w-0">
                                                     <div
                                                         className="w-2.5 h-2.5 rounded-full shrink-0"
                                                         style={{
-                                                            background: item.fill,
+                                                            background:
+                                                                item.fill,
                                                         }}
                                                     />
 
@@ -273,7 +317,7 @@ export default function Index({
 
                                                 <span className="font-bold text-gray-900 shrink-0">
                                                     {Number(
-                                                        item.percentage,
+                                                        item.percentage ?? 0,
                                                     ).toFixed(1)}
                                                     %
                                                 </span>
@@ -289,28 +333,30 @@ export default function Index({
                         </CardContent>
                     </Card>
 
-                    {/* Dynamic Inventory Health */}
-                    <Card className="lg:col-span-1">
-                        <CardHeader className="pb-2">
-                            <CardTitle>
-                                Inventory Health
-                            </CardTitle>
+                    {/* INVENTORY HEALTH */}
+                    <Card className="lg:col-span-1 min-w-0 h-full flex flex-col">
+                        <CardHeader className="pb-1">
+                            <CardTitle>Inventory Health</CardTitle>
                         </CardHeader>
 
-                        <CardContent className="flex flex-col items-center justify-center pt-4">
-                            <RadialChart
-                                data={[
-                                    {
-                                        name: "Usable Stock",
-                                        value: healthPercentage,
-                                    },
-                                ]}
-                                value={`${healthPercentage}%`}
-                                label="Usable Stock"
-                                color="#2E7D64"
-                            />
+                        <CardContent className="flex flex-1 flex-col items-center justify-center pt-2 pb-5">
+                            {/* RADIAL CHART */}
+                            <div className="w-full max-w-[260px]">
+                                <RadialChart
+                                    data={[
+                                        {
+                                            name: "Usable Stock",
+                                            value: healthPercentage,
+                                        },
+                                    ]}
+                                    value={`${healthPercentage.toFixed(1)}%`}
+                                    label="Usable Stock"
+                                    color="#2E7D64"
+                                />
+                            </div>
 
-                            <p className="text-xs text-gray-500 text-center mt-2">
+                            {/* INVENTORY DETAILS */}
+                            <p className="text-xs text-gray-500 text-center mt-1 max-w-[280px] leading-relaxed">
                                 {Number(
                                     inventoryHealth.usableStock ?? 0,
                                 ).toLocaleString()}{" "}
@@ -324,9 +370,8 @@ export default function Index({
                     </Card>
                 </div>
 
-                <RecentDispensingTable
-                    recentActivity={recentActivity}
-                />
+                {/* RECENT DISPENSING */}
+                <RecentDispensingTable recentActivity={recentActivity} />
             </div>
         </AuthenticatedLayout>
     );

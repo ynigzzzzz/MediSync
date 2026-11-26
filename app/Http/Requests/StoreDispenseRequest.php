@@ -17,13 +17,13 @@ class StoreDispenseRequest extends FormRequest
             'patient_name' => [
                 'nullable',
                 'string',
-                'max:255',
+                'max:100',
             ],
 
             'prescription_no' => [
                 'nullable',
                 'string',
-                'max:255',
+                'max:50',
             ],
 
             'items' => [

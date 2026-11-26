@@ -61,7 +61,7 @@ class StockReceivingController extends Controller
 
             'expiringBatches' => $data['expiringBatches'],
 
-            'alerts' => StockAlertService::getAlerts(),
+            'alerts' => StockAlertService::getAlerts($medicineStats),
 
             'stats' => [
                 'low_stock' => $medicineStats['lowstock'],

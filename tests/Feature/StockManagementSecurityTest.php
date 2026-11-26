@@ -31,6 +31,7 @@ class StockManagementSecurityTest extends TestCase
     {
         $pharmacist = User::factory()->create(['role' => 'pharmacist']);
         $medicine = $this->createMedicine();
+
         $supplier = Supplier::create([
             'name' => 'Active Supplier',
             'status' => 'active',
@@ -53,7 +54,9 @@ class StockManagementSecurityTest extends TestCase
 
         $response->assertSessionHasNoErrors();
 
-        $batch = StockIn::query()->where('batch_no', 'RECEIVE-001')->firstOrFail();
+        $batch = StockIn::query()
+            ->where('batch_no', 'RECEIVE-001')
+            ->firstOrFail();
 
         $this->assertDatabaseHas('medicines', [
             'medicine_id' => $medicine->medicine_id,
@@ -75,11 +78,100 @@ class StockManagementSecurityTest extends TestCase
         );
     }
 
+    public function test_disposal_rolls_back_all_batches_when_one_selected_batch_is_already_disposed(): void
+    {
+        $pharmacist = User::factory()->create([
+            'role' => 'pharmacist',
+        ]);
+
+        $medicine = $this->createMedicine([
+            'current_stock' => 5,
+        ]);
+
+        // First batch: valid and available for disposal.
+        $validBatch = $this->createBatch(
+            $medicine,
+            5,
+            now()->addMonths(6)->toDateString(),
+        );
+
+        // Second batch: already disposed.
+        $disposedBatch = $this->createBatch(
+            $medicine,
+            5,
+            now()->addMonths(6)->toDateString(),
+            [
+                'remaining_quantity' => 0,
+                'disposed_quantity' => 5,
+                'disposed_at' => now(),
+                'disposed_by' => $pharmacist->user_id,
+            ],
+        );
+
+        $auditCountBefore = DB::table('audit_log')
+            ->where('action_type', 'DISPOSE_BATCH')
+            ->count();
+
+        // Select both batches. The valid batch is processed first
+        // because disposal orders batches by stock_in_id.
+        $response = $this->actingAs($pharmacist)
+            ->from(route('stock-receiving.index'))
+            ->post('/stock-receiving/dispose', [
+                'batch_ids' => [
+                    $validBatch->stock_in_id,
+                    $disposedBatch->stock_in_id,
+                ],
+            ]);
+
+        $response->assertSessionHasErrors('batch_ids');
+
+        // First batch must be restored after transaction rollback.
+        $this->assertDatabaseHas('stock_in', [
+            'stock_in_id' => $validBatch->stock_in_id,
+            'remaining_quantity' => 5,
+            'disposed_quantity' => 0,
+            'disposed_at' => null,
+        ]);
+
+        // Previously disposed batch must remain unchanged.
+        $this->assertDatabaseHas('stock_in', [
+            'stock_in_id' => $disposedBatch->stock_in_id,
+            'remaining_quantity' => 0,
+            'disposed_quantity' => 5,
+            'disposed_by' => $pharmacist->user_id,
+        ]);
+
+        // Aggregate medicine inventory must remain unchanged.
+        $this->assertDatabaseHas('medicines', [
+            'medicine_id' => $medicine->medicine_id,
+            'current_stock' => 5,
+        ]);
+
+        // No partial disposal audit entry should be committed.
+        $auditCountAfter = DB::table('audit_log')
+            ->where('action_type', 'DISPOSE_BATCH')
+            ->count();
+
+        $this->assertSame(
+            $auditCountBefore,
+            $auditCountAfter,
+        );
+
+        $this->assertDatabaseMissing('audit_log', [
+            'action_type' => 'DISPOSE_BATCH',
+            'reference_id' => $validBatch->stock_in_id,
+        ]);
+    }
+
     public function test_assistant_can_view_dispensing_and_dispense_available_stock(): void
     {
         $assistant = User::factory()->create(['role' => 'assistant']);
         $medicine = $this->createMedicine(['current_stock' => 8]);
-        $batch = $this->createBatch($medicine, 8, now()->addMonths(6)->toDateString());
+        $batch = $this->createBatch(
+            $medicine,
+            8,
+            now()->addMonths(6)->toDateString(),
+        );
 
         $this->actingAs($assistant)
             ->get(route('dispensing.index'))
@@ -129,8 +221,18 @@ class StockManagementSecurityTest extends TestCase
     {
         $pharmacist = User::factory()->create(['role' => 'pharmacist']);
         $medicine = $this->createMedicine(['current_stock' => 10]);
-        $earlierBatch = $this->createBatch($medicine, 5, now()->addDays(10)->toDateString());
-        $laterBatch = $this->createBatch($medicine, 5, now()->addDays(20)->toDateString());
+
+        $earlierBatch = $this->createBatch(
+            $medicine,
+            5,
+            now()->addDays(10)->toDateString(),
+        );
+
+        $laterBatch = $this->createBatch(
+            $medicine,
+            5,
+            now()->addDays(20)->toDateString(),
+        );
 
         $this->actingAs($pharmacist)->post(route('dispensing.store'), [
             'items' => [[
@@ -140,60 +242,190 @@ class StockManagementSecurityTest extends TestCase
             ]],
         ])->assertSessionHasNoErrors();
 
-        $dispenses = StockOut::query()->orderBy('stock_out_id')->get();
+        $dispenses = StockOut::query()
+            ->orderBy('stock_out_id')
+            ->get();
 
         $this->assertCount(2, $dispenses);
-        $this->assertSame((int) $earlierBatch->stock_in_id, (int) $dispenses[0]->stock_in_id);
+
+        $this->assertSame(
+            (int) $earlierBatch->stock_in_id,
+            (int) $dispenses[0]->stock_in_id,
+        );
+
         $this->assertSame(5, (int) $dispenses[0]->quantity);
-        $this->assertSame((int) $laterBatch->stock_in_id, (int) $dispenses[1]->stock_in_id);
+
+        $this->assertSame(
+            (int) $laterBatch->stock_in_id,
+            (int) $dispenses[1]->stock_in_id,
+        );
+
         $this->assertSame(2, (int) $dispenses[1]->quantity);
 
         $this->assertDatabaseHas('stock_in', [
             'stock_in_id' => $earlierBatch->stock_in_id,
             'remaining_quantity' => 0,
         ]);
+
         $this->assertDatabaseHas('stock_in', [
             'stock_in_id' => $laterBatch->stock_in_id,
             'remaining_quantity' => 3,
+        ]);
+
+        // Verify aggregate medicine stock after FEFO dispensing.
+        $this->assertDatabaseHas('medicines', [
+            'medicine_id' => $medicine->medicine_id,
+            'current_stock' => 3,
+        ]);
+    }
+
+    public function test_dispensing_uses_only_unexpired_and_undisposed_batches(): void
+    {
+        $pharmacist = User::factory()->create([
+            'role' => 'pharmacist',
+        ]);
+
+        $medicine = $this->createMedicine([
+            'current_stock' => 10,
+        ]);
+
+        // Expired batch: must not be used.
+        $expiredBatch = $this->createBatch(
+            $medicine,
+            5,
+            now()->subDay()->toDateString(),
+        );
+
+        // Disposed batch: must not be used.
+        $disposedBatch = $this->createBatch(
+            $medicine,
+            5,
+            now()->addDays(10)->toDateString(),
+            [
+                'remaining_quantity' => 0,
+                'disposed_quantity' => 5,
+                'disposed_at' => now(),
+                'disposed_by' => $pharmacist->user_id,
+            ],
+        );
+
+        // Valid batch: this is the only batch available for dispensing.
+        $validBatch = $this->createBatch(
+            $medicine,
+            5,
+            now()->addDays(20)->toDateString(),
+        );
+
+        $this->actingAs($pharmacist)
+            ->post(route('dispensing.store'), [
+                'items' => [[
+                    'medicine_id' => $medicine->medicine_id,
+                    'quantity' => 5,
+                    'dosage' => '500mg',
+                ]],
+            ])
+            ->assertSessionHasNoErrors();
+
+        $dispenses = StockOut::query()->get();
+
+        $this->assertCount(1, $dispenses);
+
+        // Only the valid batch should be consumed.
+        $this->assertSame(
+            (int) $validBatch->stock_in_id,
+            (int) $dispenses->first()->stock_in_id,
+        );
+
+        // Expired batch remains untouched.
+        $this->assertDatabaseHas('stock_in', [
+            'stock_in_id' => $expiredBatch->stock_in_id,
+            'remaining_quantity' => 5,
+        ]);
+
+        // Disposed batch remains untouched.
+        $this->assertDatabaseHas('stock_in', [
+            'stock_in_id' => $disposedBatch->stock_in_id,
+            'remaining_quantity' => 0,
+            'disposed_quantity' => 5,
+        ]);
+
+        // Valid batch is consumed.
+        $this->assertDatabaseHas('stock_in', [
+            'stock_in_id' => $validBatch->stock_in_id,
+            'remaining_quantity' => 0,
+        ]);
+
+        // Aggregate stock is updated correctly.
+        $this->assertDatabaseHas('medicines', [
+            'medicine_id' => $medicine->medicine_id,
+            'current_stock' => 5,
         ]);
     }
 
     public function test_multi_medicine_dispense_rolls_back_if_any_item_has_insufficient_unexpired_stock(): void
     {
         $pharmacist = User::factory()->create(['role' => 'pharmacist']);
-        $firstMedicine = $this->createMedicine(['generic_name' => 'First Medicine', 'current_stock' => 5]);
-        $secondMedicine = $this->createMedicine(['generic_name' => 'Second Medicine', 'current_stock' => 4]);
-        $firstBatch = $this->createBatch($firstMedicine, 5, now()->addMonths(6)->toDateString());
 
-        $response = $this->actingAs($pharmacist)->from(route('dispensing.index'))->post(
-            route('dispensing.store'),
-            [
-                'items' => [
-                    [
-                        'medicine_id' => $firstMedicine->medicine_id,
-                        'quantity' => 2,
-                        'dosage' => '500mg',
-                    ],
-                    [
-                        'medicine_id' => $secondMedicine->medicine_id,
-                        'quantity' => 1,
-                        'dosage' => '250mg',
+        $firstMedicine = $this->createMedicine([
+            'generic_name' => 'First Medicine',
+            'current_stock' => 5,
+        ]);
+
+        $secondMedicine = $this->createMedicine([
+            'generic_name' => 'Second Medicine',
+            'current_stock' => 4,
+        ]);
+
+        $firstBatch = $this->createBatch(
+            $firstMedicine,
+            5,
+            now()->addMonths(6)->toDateString(),
+        );
+
+        $response = $this->actingAs($pharmacist)
+            ->from(route('dispensing.index'))
+            ->post(
+                route('dispensing.store'),
+                [
+                    'items' => [
+                        [
+                            'medicine_id' => $firstMedicine->medicine_id,
+                            'quantity' => 2,
+                            'dosage' => '500mg',
+                        ],
+                        [
+                            'medicine_id' => $secondMedicine->medicine_id,
+                            'quantity' => 1,
+                            'dosage' => '250mg',
+                        ],
                     ],
                 ],
-            ],
-        );
+            );
 
         $response->assertSessionHasErrors('dispense');
 
+        // First medicine must retain its original stock.
         $this->assertDatabaseHas('medicines', [
             'medicine_id' => $firstMedicine->medicine_id,
             'current_stock' => 5,
         ]);
+
+        // Second medicine must also retain its original stock.
+        $this->assertDatabaseHas('medicines', [
+            'medicine_id' => $secondMedicine->medicine_id,
+            'current_stock' => 4,
+        ]);
+
+        // First medicine's original batch must be restored.
         $this->assertDatabaseHas('stock_in', [
             'stock_in_id' => $firstBatch->stock_in_id,
             'remaining_quantity' => 5,
         ]);
+
+        // No dispensing records should survive the failed transaction.
         $this->assertDatabaseCount('stock_out', 0);
+
+        // No dispensing audit entry should survive the failed transaction.
         $this->assertDatabaseMissing('audit_log', [
             'action_type' => 'STOCK_OUT',
         ]);
@@ -203,7 +435,13 @@ class StockManagementSecurityTest extends TestCase
     {
         $pharmacist = User::factory()->create(['role' => 'pharmacist']);
         $medicine = $this->createMedicine(['current_stock' => 5]);
-        $batch = $this->createBatch($medicine, 5, now()->addMonths(6)->toDateString());
+
+        $batch = $this->createBatch(
+            $medicine,
+            5,
+            now()->addMonths(6)->toDateString(),
+        );
+
         $dispense = StockOut::create([
             'medicine_id' => $medicine->medicine_id,
             'quantity' => 1,
@@ -230,7 +468,12 @@ class StockManagementSecurityTest extends TestCase
     {
         $assistant = User::factory()->create(['role' => 'assistant']);
         $medicine = $this->createMedicine(['current_stock' => 5]);
-        $batch = $this->createBatch($medicine, 5, now()->addMonths(6)->toDateString());
+
+        $batch = $this->createBatch(
+            $medicine,
+            5,
+            now()->addMonths(6)->toDateString(),
+        );
 
         $this->actingAs($assistant)->post('/stock-receiving/dispose', [
             'batch_ids' => [$batch->stock_in_id],
@@ -241,7 +484,12 @@ class StockManagementSecurityTest extends TestCase
     {
         $pharmacist = User::factory()->create(['role' => 'pharmacist']);
         $medicine = $this->createMedicine(['current_stock' => 5]);
-        $batch = $this->createBatch($medicine, 5, now()->addMonths(6)->toDateString());
+
+        $batch = $this->createBatch(
+            $medicine,
+            5,
+            now()->addMonths(6)->toDateString(),
+        );
 
         $this->actingAs($pharmacist)->post('/stock-receiving/dispose', [
             'batch_ids' => [$batch->stock_in_id],
@@ -270,7 +518,12 @@ class StockManagementSecurityTest extends TestCase
     {
         $admin = User::factory()->create(['role' => 'admin']);
         $medicine = $this->createMedicine(['current_stock' => 5]);
-        $batch = $this->createBatch($medicine, 5, now()->addMonths(6)->toDateString());
+
+        $batch = $this->createBatch(
+            $medicine,
+            5,
+            now()->addMonths(6)->toDateString(),
+        );
 
         $this->actingAs($admin)->delete(
             route('stock-receiving.destroy', $batch),
@@ -280,12 +533,14 @@ class StockManagementSecurityTest extends TestCase
         $this->assertDatabaseMissing('stock_in', [
             'stock_in_id' => $batch->stock_in_id,
         ]);
+
         $this->assertDatabaseHas('audit_log', [
             'user_id' => $admin->user_id,
             'action_type' => 'DELETE_STOCK_IN',
             'reference_id' => $batch->stock_in_id,
             'reason' => 'Duplicate receiving entry',
         ]);
+
         $this->assertDatabaseHas('medicines', [
             'medicine_id' => $medicine->medicine_id,
             'current_stock' => 0,
@@ -296,12 +551,14 @@ class StockManagementSecurityTest extends TestCase
     {
         $admin = User::factory()->create(['role' => 'admin']);
         $medicine = $this->createMedicine(['current_stock' => 3]);
+
         $batch = $this->createBatch(
             $medicine,
             10,
             now()->addMonths(6)->toDateString(),
             ['remaining_quantity' => 3],
         );
+
         $dispense = StockOut::create([
             'medicine_id' => $medicine->medicine_id,
             'quantity' => 7,
@@ -322,15 +579,85 @@ class StockManagementSecurityTest extends TestCase
             'stock_in_id' => $batch->stock_in_id,
             'remaining_quantity' => 10,
         ]);
+
         $this->assertDatabaseHas('medicines', [
             'medicine_id' => $medicine->medicine_id,
             'current_stock' => 10,
         ]);
+
         $this->assertDatabaseHas('audit_log', [
             'user_id' => $admin->user_id,
             'action_type' => 'DELETE_STOCK_OUT',
             'reference_id' => $dispense->stock_out_id,
             'reason' => 'Corrected dispensing record',
+        ]);
+    }
+
+    public function test_admin_cannot_reverse_dispensing_from_a_disposed_batch(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $medicine = $this->createMedicine([
+            'current_stock' => 0,
+        ]);
+
+        $batch = $this->createBatch(
+            $medicine,
+            10,
+            now()->addMonths(6)->toDateString(),
+            [
+                'remaining_quantity' => 0,
+                'disposed_quantity' => 3,
+                'disposed_at' => now(),
+                'disposed_by' => $admin->user_id,
+            ],
+        );
+
+        $dispense = StockOut::create([
+            'medicine_id' => $medicine->medicine_id,
+            'quantity' => 7,
+            'dosage' => '500mg',
+            'patient_name' => 'Test Patient',
+            'prescription_no' => 'RX-DISPOSED-001',
+            'dispensed_by' => $admin->user_id,
+            'price' => 2.50,
+            'stock_in_id' => $batch->stock_in_id,
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->from(route('dispensing.index'))
+            ->delete(
+                route('dispensing.destroy', $dispense),
+                ['reason' => 'Attempted reversal'],
+            );
+
+        $response->assertSessionHasErrors('delete');
+
+        // The original dispensing record must remain.
+        $this->assertDatabaseHas('stock_out', [
+            'stock_out_id' => $dispense->stock_out_id,
+            'quantity' => 7,
+        ]);
+
+        // The disposed batch must remain unchanged.
+        $this->assertDatabaseHas('stock_in', [
+            'stock_in_id' => $batch->stock_in_id,
+            'remaining_quantity' => 0,
+            'disposed_quantity' => 3,
+        ]);
+
+        // Aggregate inventory must not increase.
+        $this->assertDatabaseHas('medicines', [
+            'medicine_id' => $medicine->medicine_id,
+            'current_stock' => 0,
+        ]);
+
+        // No successful reversal audit should be recorded.
+        $this->assertDatabaseMissing('audit_log', [
+            'action_type' => 'DELETE_STOCK_OUT',
+            'reference_id' => $dispense->stock_out_id,
         ]);
     }
 
@@ -345,6 +672,160 @@ class StockManagementSecurityTest extends TestCase
             'current_stock' => 0,
             'type' => 'Tablet',
         ], $overrides));
+    }
+
+    public function test_inventory_remains_balanced_after_dispensing_and_disposal(): void
+    {
+        $pharmacist = User::factory()->create([
+            'role' => 'pharmacist',
+        ]);
+
+        $medicine = $this->createMedicine([
+            'generic_name' => 'Lifecycle Test Medicine',
+            'current_stock' => 100,
+        ]);
+
+        $firstBatch = $this->createBatch(
+            $medicine,
+            40,
+            now()->addDays(10)->toDateString(),
+        );
+
+        $secondBatch = $this->createBatch(
+            $medicine,
+            60,
+            now()->addDays(20)->toDateString(),
+        );
+
+        // STEP 1: Dispense 30 units.
+        $this->actingAs($pharmacist)
+            ->post(route('dispensing.store'), [
+                'items' => [[
+                    'medicine_id' => $medicine->medicine_id,
+                    'quantity' => 30,
+                    'dosage' => '500mg',
+                ]],
+            ])
+            ->assertSessionHasNoErrors();
+
+        // Verify FEFO consumption.
+        $this->assertDatabaseHas('stock_in', [
+            'stock_in_id' => $firstBatch->stock_in_id,
+            'remaining_quantity' => 10,
+        ]);
+
+        $this->assertDatabaseHas('stock_in', [
+            'stock_in_id' => $secondBatch->stock_in_id,
+            'remaining_quantity' => 60,
+        ]);
+
+        $this->assertSame(
+            70,
+            (int) Medicine::where(
+                'medicine_id',
+                $medicine->medicine_id,
+            )->value('current_stock'),
+        );
+
+        // STEP 2: Dispose of both remaining batches.
+        $this->post('/stock-receiving/dispose', [
+            'batch_ids' => [
+                $firstBatch->stock_in_id,
+                $secondBatch->stock_in_id,
+            ],
+        ])->assertSessionHasNoErrors();
+
+        // STEP 3: Verify disposal history.
+        $this->assertDatabaseHas('stock_in', [
+            'stock_in_id' => $firstBatch->stock_in_id,
+            'remaining_quantity' => 0,
+            'disposed_quantity' => 10,
+        ]);
+
+        $this->assertDatabaseHas('stock_in', [
+            'stock_in_id' => $secondBatch->stock_in_id,
+            'remaining_quantity' => 0,
+            'disposed_quantity' => 60,
+        ]);
+
+        // STEP 4: Verify aggregate inventory.
+        $currentStock = (int) Medicine::where(
+            'medicine_id',
+            $medicine->medicine_id,
+        )->value('current_stock');
+
+        $remainingStock = (int) StockIn::where(
+            'medicine_id',
+            $medicine->medicine_id,
+        )->sum('remaining_quantity');
+
+        $this->assertSame(0, $currentStock);
+        $this->assertSame(0, $remainingStock);
+
+        // STEP 5: Verify dispensing history remains intact.
+        $this->assertSame(
+            30,
+            (int) StockOut::where(
+                'medicine_id',
+                $medicine->medicine_id,
+            )->sum('quantity'),
+        );
+
+        // STEP 6: Verify both disposal actions were audited.
+        $this->assertSame(
+            2,
+            DB::table('audit_log')
+                ->where('action_type', 'DISPOSE_BATCH')
+                ->count(),
+        );
+    }
+
+    public function test_dispensing_rejects_expired_stock_even_when_aggregate_stock_is_positive(): void
+    {
+        $pharmacist = User::factory()->create([
+            'role' => 'pharmacist',
+        ]);
+
+        $medicine = $this->createMedicine([
+            'current_stock' => 5,
+        ]);
+
+        $expiredBatch = $this->createBatch(
+            $medicine,
+            5,
+            now()->subDay()->toDateString(),
+        );
+
+        $this->actingAs($pharmacist)
+            ->from(route('dispensing.index'))
+            ->post(route('dispensing.store'), [
+                'items' => [[
+                    'medicine_id' => $medicine->medicine_id,
+                    'quantity' => 1,
+                    'dosage' => '500mg',
+                ]],
+            ])
+            ->assertSessionHasErrors('dispense');
+
+        // Aggregate stock must remain unchanged.
+        $this->assertDatabaseHas('medicines', [
+            'medicine_id' => $medicine->medicine_id,
+            'current_stock' => 5,
+        ]);
+
+        // Expired batch must remain unchanged.
+        $this->assertDatabaseHas('stock_in', [
+            'stock_in_id' => $expiredBatch->stock_in_id,
+            'remaining_quantity' => 5,
+        ]);
+
+        // No dispensing transaction should be created.
+        $this->assertDatabaseCount('stock_out', 0);
+
+        // No successful dispensing audit should exist.
+        $this->assertDatabaseMissing('audit_log', [
+            'action_type' => 'STOCK_OUT',
+        ]);
     }
 
     private function createBatch(

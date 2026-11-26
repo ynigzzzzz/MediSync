@@ -7,6 +7,7 @@ use App\Models\StockIn;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class MedicineCatalogAuthorizationTest extends TestCase
@@ -229,9 +230,167 @@ class MedicineCatalogAuthorizationTest extends TestCase
         $response->assertForbidden();
     }
 
-    private function createMedicine(): Medicine
+    public function test_expiring_and_expired_batch_views_apply_medicine_filters(): void
     {
-        return Medicine::create($this->medicinePayload());
+        $user = User::factory()->create(['role' => 'pharmacist']);
+        $expiringMedicine = $this->createMedicine([
+            'generic_name' => 'Paracetamol',
+            'category' => 'Fever',
+            'type' => 'Tablet',
+        ]);
+        $expiredMedicine = $this->createMedicine([
+            'generic_name' => 'Ibuprofen',
+            'category' => 'Pain',
+            'type' => 'Capsule',
+        ]);
+
+        StockIn::create([
+            'medicine_id' => $expiringMedicine->medicine_id,
+            'quantity' => 10,
+            'batch_no' => 'EXPIRING-PARA-001',
+            'expiry_date' => now()->addDays(10)->toDateString(),
+            'remaining_quantity' => 10,
+        ]);
+
+        StockIn::create([
+            'medicine_id' => $expiredMedicine->medicine_id,
+            'quantity' => 8,
+            'batch_no' => 'EXPIRED-IBU-001',
+            'expiry_date' => now()->subDays(10)->toDateString(),
+            'remaining_quantity' => 8,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('medicine-list.index', [
+                'filter' => 'expiring',
+                'search' => 'para',
+                'category' => 'Fever',
+                'type' => 'Tablet',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('MedicineCatalog/Index')
+                ->has('batches.data', 1)
+                ->where('batches.data.0.medicine.generic_name', 'Paracetamol'),
+            );
+
+        $this->get(route('medicine-list.index', [
+            'filter' => 'expired',
+            'search' => 'ibu',
+            'category' => 'Pain',
+            'type' => 'Capsule',
+        ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('MedicineCatalog/Index')
+                ->has('batches.data', 1)
+                ->where('batches.data.0.medicine.generic_name', 'Ibuprofen'),
+            );
+    }
+
+    public function test_admin_can_restore_deleted_medicine_and_preserve_history(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $medicine = $this->createMedicine();
+        $medicineId = $medicine->medicine_id;
+
+        DB::table('stock_in')->insert([
+            'medicine_id' => $medicineId,
+            'quantity' => 10,
+            'batch_no' => 'RESTORE-TEST-001',
+            'expiry_date' => now()->addYear()->toDateString(),
+            'remaining_quantity' => 0,
+        ]);
+
+        $this->actingAs($admin)
+            ->from('/medicine-list')
+            ->delete(
+                route('medicine-list.destroy', $medicine),
+                ['reason' => 'Restoration regression test'],
+            )
+            ->assertSessionHasNoErrors();
+
+        $this->assertSoftDeleted('medicines', [
+            'medicine_id' => $medicineId,
+        ]);
+
+        $this->post(
+            route('reports.medicines.restore', $medicineId),
+        )->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('medicines', [
+            'medicine_id' => $medicineId,
+            'generic_name' => 'Paracetamol',
+            'deleted_at' => null,
+        ]);
+
+        $this->assertDatabaseHas('stock_in', [
+            'medicine_id' => $medicineId,
+            'batch_no' => 'RESTORE-TEST-001',
+        ]);
+
+        $this->assertDatabaseHas('audit_log', [
+            'user_id' => $admin->user_id,
+            'action_type' => 'RESTORE_MEDICINE',
+            'reference_id' => $medicineId,
+        ]);
+
+        $this->assertSame(
+            $medicineId,
+            Medicine::findOrFail($medicineId)->medicine_id,
+        );
+    }
+
+    public function test_pharmacist_and_assistant_cannot_restore_medicines(): void
+    {
+        $medicine = $this->createMedicine();
+        $medicineId = $medicine->medicine_id;
+
+        $medicine->delete();
+
+        foreach (['pharmacist', 'assistant'] as $role) {
+            $user = User::factory()->create(['role' => $role]);
+
+            $this->actingAs($user)
+                ->post(route('reports.medicines.restore', $medicineId))
+                ->assertForbidden();
+        }
+
+        $this->assertSoftDeleted('medicines', [
+            'medicine_id' => $medicineId,
+        ]);
+
+        $this->assertDatabaseMissing('audit_log', [
+            'action_type' => 'RESTORE_MEDICINE',
+            'reference_id' => $medicineId,
+        ]);
+    }
+
+    public function test_admin_cannot_restore_an_already_active_medicine(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $medicine = $this->createMedicine();
+
+        $this->actingAs($admin)
+            ->post(
+                route('reports.medicines.restore', $medicine->medicine_id),
+            )
+            ->assertNotFound();
+
+        $this->assertDatabaseHas('medicines', [
+            'medicine_id' => $medicine->medicine_id,
+            'deleted_at' => null,
+        ]);
+
+        $this->assertDatabaseMissing('audit_log', [
+            'action_type' => 'RESTORE_MEDICINE',
+            'reference_id' => $medicine->medicine_id,
+        ]);
+    }
+
+    private function createMedicine(array $overrides = []): Medicine
+    {
+        return Medicine::create($this->medicinePayload($overrides));
     }
 
     private function medicinePayload(array $overrides = []): array

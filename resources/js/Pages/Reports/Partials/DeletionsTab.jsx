@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { router } from "@inertiajs/react";
 
@@ -29,9 +28,7 @@ export default function DeletionsTab({
     const [restoringId, setRestoringId] = useState(null);
 
     const deletionRows = deletions?.rows ?? [];
-    const medicines = Array.isArray(deletedMedicines)
-        ? deletedMedicines
-        : [];
+    const medicines = Array.isArray(deletedMedicines) ? deletedMedicines : [];
 
     function handleRestore(medicine) {
         const medicineId = medicine.medicine_id;
@@ -39,7 +36,7 @@ export default function DeletionsTab({
         if (!medicineId || restoringId !== null) return;
 
         const confirmed = window.confirm(
-            `Are you sure you want to restore ${medicine.generic_name}?`
+            `Are you sure you want to restore ${medicine.generic_name}?`,
         );
 
         if (!confirmed) return;
@@ -57,26 +54,23 @@ export default function DeletionsTab({
                 onFinish: () => {
                     setRestoringId(null);
                 },
-            }
+            },
         );
     }
 
     return (
         <div className="mt-0 space-y-4">
-
             {/* CURRENTLY DELETED MEDICINES */}
 
             <Card>
                 <CardHeader>
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <div>
-                            <CardTitle>
-                                Deleted Medicines
-                            </CardTitle>
+                            <CardTitle>Deleted Medicines</CardTitle>
 
                             <CardDescription>
-                                Medicines that have been deleted and
-                                are available for restoration.
+                                Medicines that have been deleted and are
+                                available for restoration.
                             </CardDescription>
                         </div>
 
@@ -88,7 +82,6 @@ export default function DeletionsTab({
 
                 <CardContent className="p-0 overflow-x-auto">
                     <table className="w-full min-w-[1100px] text-left text-[13px]">
-
                         <thead>
                             <tr className="border-b border-gray-100">
                                 {[
@@ -122,7 +115,8 @@ export default function DeletionsTab({
                                             <i className="fas fa-trash-can text-2xl opacity-30" />
 
                                             <span>
-                                                No deleted medicines available for restoration.
+                                                No deleted medicines available
+                                                for restoration.
                                             </span>
                                         </div>
                                     </td>
@@ -172,7 +166,8 @@ export default function DeletionsTab({
                                             >
                                                 <i className="fas fa-rotate-left" />
 
-                                                {restoringId === medicine.medicine_id
+                                                {restoringId ===
+                                                medicine.medicine_id
                                                     ? "Restoring..."
                                                     : "Restore"}
                                             </button>
@@ -189,9 +184,7 @@ export default function DeletionsTab({
 
             <Card>
                 <CardHeader>
-                    <CardTitle>
-                        Deletion History
-                    </CardTitle>
+                    <CardTitle>Deletion History</CardTitle>
 
                     <CardDescription>
                         {deletions.total} deletion(s) recorded in this period.
@@ -200,7 +193,6 @@ export default function DeletionsTab({
 
                 <CardContent className="p-0 overflow-x-auto">
                     <table className="w-full min-w-[800px] text-left text-[13px]">
-
                         <thead>
                             <tr className="border-b border-gray-100">
                                 <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
@@ -252,9 +244,11 @@ export default function DeletionsTab({
                                                         ? "success"
                                                         : d.type === "Stock-Out"
                                                           ? "warning"
-                                                          : d.type === "Medicine"
+                                                          : d.type ===
+                                                              "Medicine"
                                                             ? "rose"
-                                                            : d.type === "Supplier"
+                                                            : d.type ===
+                                                                "Supplier"
                                                               ? "neutral"
                                                               : "danger"
                                                 }

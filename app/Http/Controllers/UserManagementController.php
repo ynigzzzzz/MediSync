@@ -84,6 +84,13 @@ class UserManagementController extends Controller
         }
         unset($validated['password']);
 
+        // An administrator may edit their profile, but cannot change their
+        // own role or status through the user-management update endpoint.
+        if ((int) $user->user_id === (int) $request->user()->user_id) {
+            $validated['role'] = $user->role;
+            $validated['status'] = $user->status;
+        }
+
         $user->update($validated);
 
         AuditLog::record(
@@ -124,23 +131,43 @@ class UserManagementController extends Controller
             return back()->withErrors(['message' => 'You cannot delete your own account.']);
         }
 
-        $hasActivity = DB::table('stock_out')->where('dispensed_by', $user->user_id)->exists()
-            || DB::table('stock_in')->where('received_by', $user->user_id)->exists();
+        $deletedUser = DB::transaction(function () use ($user) {
+            $lockedUser = User::query()
+                ->whereKey($user->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        if ($hasActivity) {
+            $hasActivity = DB::table('stock_out')
+                ->where('dispensed_by', $lockedUser->user_id)
+                ->exists()
+                || DB::table('stock_in')
+                    ->where('received_by', $lockedUser->user_id)
+                    ->exists();
+
+            if ($hasActivity) {
+                return null;
+            }
+
+            $deleted = [
+                'name' => $lockedUser->full_name,
+                'id' => $lockedUser->user_id,
+            ];
+
+            $lockedUser->delete();
+
+            return $deleted;
+        });
+
+        if ($deletedUser === null) {
             return back()->withErrors([
                 'message' => "Cannot delete {$user->full_name} — they have transaction history. Deactivate the account instead.",
             ]);
         }
 
-        $name = $user->full_name;
-        $id = $user->user_id;
-        $user->delete();
-
         AuditLog::record(
             $request->user()->user_id,
             'DELETE_USER',
-            "Deleted user: {$name} (ID {$id})",
+            "Deleted user: {$deletedUser['name']} (ID {$deletedUser['id']})",
         );
 
         return back()->with('success', 'User deleted successfully.');

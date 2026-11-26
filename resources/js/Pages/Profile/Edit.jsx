@@ -6,8 +6,6 @@ import InputLabel from "@/Components/InputLabel";
 import PrimaryButton from "@/Components/PrimaryButton";
 import TextInput from "@/Components/TextInput";
 
-
-
 export default function Edit() {
     const user = usePage().props.auth.user;
 
@@ -16,7 +14,6 @@ export default function Edit() {
             <Head title="My Profile" />
 
             <div className="w-full max-w-2xl mx-auto space-y-4">
-
                 <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
                     <UpdateProfileForm user={user} />
                 </div>
@@ -28,7 +25,6 @@ export default function Edit() {
                 <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
                     <DeleteAccountForm />
                 </div>
-
             </div>
         </AuthenticatedLayout>
     );
@@ -111,9 +107,10 @@ function UpdateProfileForm({ user }) {
                                 className="h-full w-full object-cover"
                             />
                         ) : (
-                            user.full_name?.trim()?.charAt(0)?.toUpperCase() || (
-                                <i className="fas fa-user" />
-                            )
+                            user.full_name
+                                ?.trim()
+                                ?.charAt(0)
+                                ?.toUpperCase() || <i className="fas fa-user" />
                         )}
                     </div>
 
@@ -148,7 +145,9 @@ function UpdateProfileForm({ user }) {
                                 className="inline-flex items-center gap-2 rounded-full bg-[#FFF0F5] px-4 py-2 text-xs font-semibold text-[#D93668] transition hover:bg-[#FFE4EE] disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <i className="fas fa-upload" />
-                                {data.profile_image ? "Change Photo" : "Upload Photo"}
+                                {data.profile_image
+                                    ? "Change Photo"
+                                    : "Upload Photo"}
                             </button>
 
                             <span className="text-xs text-gray-400">
@@ -362,8 +361,8 @@ function DeleteAccountForm() {
                 </h2>
                 <p className="mt-1 text-sm text-gray-600">
                     Once deleted, all data for this account will be permanently
-                    removed. Accounts with recorded stock transactions cannot
-                    be deleted.
+                    removed. Accounts with recorded stock transactions cannot be
+                    deleted.
                 </p>
             </header>
 

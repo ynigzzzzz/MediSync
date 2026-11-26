@@ -1,17 +1,38 @@
-import { router } from '@inertiajs/react';
-import Badge from '@/Components/Badge';
-import Pagination from '@/Components/Pagination';
+import { router } from "@inertiajs/react";
+import Badge from "@/Components/Badge";
+import Pagination from "@/Components/Pagination";
 
-const inputCls = "rounded-xl border border-transparent bg-[#F2F2F7] px-3 py-1.5 text-[13px] text-gray-900 focus:border-[#FF4D79] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#FF4D79]/20 transition-all";
+const inputCls =
+    "rounded-xl border border-transparent bg-[#F2F2F7] px-3 py-1.5 text-[13px] text-gray-900 focus:border-[#FF4D79] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#FF4D79]/20 transition-all";
 
 const BATCH_TITLES = {
-    expiring: { icon: 'fa-hourglass-half', text: 'Batches Expiring Within 30 Days', bg: 'bg-amber-50', textColor: 'text-amber-800' },
-    expired: { icon: 'fa-ban', text: 'Expired Batches (Still in Stock)', bg: 'bg-red-50', textColor: 'text-critical-red' },
+    expiring: {
+        icon: "fa-hourglass-half",
+        text: "Batches Expiring Within 30 Days",
+        bg: "bg-amber-50",
+        textColor: "text-amber-800",
+    },
+    expired: {
+        icon: "fa-ban",
+        text: "Expired Batches (Still in Stock)",
+        bg: "bg-red-50",
+        textColor: "text-critical-red",
+    },
 };
 
 const MEDICINE_TITLES = {
-    lowstock: { icon: 'fa-triangle-exclamation', text: 'Low Stock Medicines', bg: 'bg-amber-50', textColor: 'text-amber-800' },
-    outofstock: { icon: 'fa-circle-xmark', text: 'Out of Stock Medicines', bg: 'bg-red-50', textColor: 'text-critical-red' },
+    lowstock: {
+        icon: "fa-triangle-exclamation",
+        text: "Low Stock Medicines",
+        bg: "bg-amber-50",
+        textColor: "text-amber-800",
+    },
+    outofstock: {
+        icon: "fa-circle-xmark",
+        text: "Out of Stock Medicines",
+        bg: "bg-red-50",
+        textColor: "text-critical-red",
+    },
 };
 
 export default function MedicineTables({
@@ -40,10 +61,10 @@ export default function MedicineTables({
     const batchRows = batches?.data ?? [];
 
     const isBatchView =
-        activeFilter === 'expiring' || activeFilter === 'expired';
+        activeFilter === "expiring" || activeFilter === "expired";
 
     const isMedicineFilteredView =
-        activeFilter === 'lowstock' || activeFilter === 'outofstock';
+        activeFilter === "lowstock" || activeFilter === "outofstock";
 
     const renderFilterHeader = () => (
         <form
@@ -114,9 +135,13 @@ export default function MedicineTables({
 
         return (
             <div className="bg-white rounded-[16px] shadow-sm border border-gray-100 overflow-hidden">
-                <div className={`p-4 border-b border-gray-100 flex flex-col gap-4 ${meta.bg}`}>
+                <div
+                    className={`p-4 border-b border-gray-100 flex flex-col gap-4 ${meta.bg}`}
+                >
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                        <h3 className={`font-semibold text-[14px] ${meta.textColor}`}>
+                        <h3
+                            className={`font-semibold text-[14px] ${meta.textColor}`}
+                        >
                             <i className={`fas mr-2 ${meta.icon}`} />
                             {meta.text}
                         </h3>
@@ -138,11 +163,21 @@ export default function MedicineTables({
                         <thead>
                             <tr className="border-b border-gray-100">
                                 <th className="px-4 py-3 w-10"></th>
-                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Medicine</th>
-                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Batch No</th>
-                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Expiry Date</th>
-                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Qty Left</th>
-                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Days Left</th>
+                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                                    Medicine
+                                </th>
+                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                                    Batch No
+                                </th>
+                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                                    Expiry Date
+                                </th>
+                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                                    Qty Left
+                                </th>
+                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                                    Days Left
+                                </th>
                             </tr>
                         </thead>
 
@@ -155,23 +190,40 @@ export default function MedicineTables({
                                     <td className="px-4 py-3">
                                         <input
                                             type="checkbox"
-                                            checked={selectedBatches.includes(b.stock_in_id)}
-                                            onChange={() => toggleBatch(b.stock_in_id)}
+                                            checked={selectedBatches.includes(
+                                                b.stock_in_id,
+                                            )}
+                                            onChange={() =>
+                                                toggleBatch(b.stock_in_id)
+                                            }
                                             className="rounded border-gray-300 text-[#FF4D79] focus:ring-[#FF4D79]"
                                         />
                                     </td>
 
                                     <td className="px-4 py-3 text-gray-900 font-medium">
-                                        {b.medicine?.generic_name}{' '}
-                                        {b.medicine?.brand_name && `(${b.medicine.brand_name})`}
+                                        {b.medicine?.generic_name}{" "}
+                                        {b.medicine?.brand_name &&
+                                            `(${b.medicine.brand_name})`}
                                     </td>
 
-                                    <td className="px-4 py-3 text-gray-600">{b.batch_no}</td>
-                                    <td className="px-4 py-3 text-gray-600">{b.expiry_date}</td>
-                                    <td className="px-4 py-3 text-gray-600">{b.remaining_quantity}</td>
+                                    <td className="px-4 py-3 text-gray-600">
+                                        {b.batch_no}
+                                    </td>
+                                    <td className="px-4 py-3 text-gray-600">
+                                        {b.expiry_date}
+                                    </td>
+                                    <td className="px-4 py-3 text-gray-600">
+                                        {b.remaining_quantity}
+                                    </td>
 
                                     <td className="px-4 py-3">
-                                        <Badge tone={b.days_left <= 0 ? 'danger' : 'warning'}>
+                                        <Badge
+                                            tone={
+                                                b.days_left <= 0
+                                                    ? "danger"
+                                                    : "warning"
+                                            }
+                                        >
                                             {b.days_left} days
                                         </Badge>
                                     </td>
@@ -180,7 +232,10 @@ export default function MedicineTables({
 
                             {batchRows.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                                    <td
+                                        colSpan={6}
+                                        className="px-4 py-8 text-center text-gray-400"
+                                    >
                                         No batches found.
                                     </td>
                                 </tr>
@@ -203,8 +258,12 @@ export default function MedicineTables({
     return (
         <div className="bg-white rounded-[16px] shadow-sm border border-gray-100 overflow-hidden">
             {filteredMeta ? (
-                <div className={`p-4 border-b border-gray-100 flex flex-col gap-4 ${filteredMeta.bg}`}>
-                    <h3 className={`font-semibold text-[14px] ${filteredMeta.textColor}`}>
+                <div
+                    className={`p-4 border-b border-gray-100 flex flex-col gap-4 ${filteredMeta.bg}`}
+                >
+                    <h3
+                        className={`font-semibold text-[14px] ${filteredMeta.textColor}`}
+                    >
                         <i className={`fas mr-2 ${filteredMeta.icon}`} />
                         {filteredMeta.text}
                     </h3>
@@ -227,13 +286,27 @@ export default function MedicineTables({
                 <table className="w-full min-w-[800px] text-left text-[13px]">
                     <thead>
                         <tr className="border-b border-gray-100">
-                            <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Generic</th>
-                            <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Brand</th>
-                            <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Type</th>
-                            <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Category</th>
-                            <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Dosage</th>
-                            <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Selling Price</th>
-                            <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Stock</th>
+                            <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                                Generic
+                            </th>
+                            <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                                Brand
+                            </th>
+                            <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                                Type
+                            </th>
+                            <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                                Category
+                            </th>
+                            <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                                Dosage
+                            </th>
+                            <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                                Selling Price
+                            </th>
+                            <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                                Stock
+                            </th>
                             {(canEdit || canDelete) && (
                                 <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                                     Actions
@@ -252,10 +325,18 @@ export default function MedicineTables({
                                     {m.generic_name}
                                 </td>
 
-                                <td className="px-4 py-3 text-gray-600">{m.brand_name}</td>
-                                <td className="px-4 py-3 text-gray-600">{m.type}</td>
-                                <td className="px-4 py-3 text-gray-600">{m.category}</td>
-                                <td className="px-4 py-3 text-gray-600">{m.dosage}</td>
+                                <td className="px-4 py-3 text-gray-600">
+                                    {m.brand_name}
+                                </td>
+                                <td className="px-4 py-3 text-gray-600">
+                                    {m.type}
+                                </td>
+                                <td className="px-4 py-3 text-gray-600">
+                                    {m.category}
+                                </td>
+                                <td className="px-4 py-3 text-gray-600">
+                                    {m.dosage}
+                                </td>
 
                                 <td className="px-4 py-3 text-gray-600">
                                     ₱{Number(m.price || 0).toFixed(2)}

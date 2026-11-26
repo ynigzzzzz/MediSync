@@ -1,12 +1,7 @@
 import { useState } from "react";
 import { Head, router } from "@inertiajs/react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
-import {
-    Tabs,
-    TabsList,
-    TabsTrigger,
-    TabsContent,
-} from "@/Components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/Components/ui/tabs";
 import { DateRangePicker } from "@/Components/ui/date-range-picker";
 
 import SummaryTab from "./Partials/SummaryTab";
@@ -23,9 +18,10 @@ function formatDate(date) {
 
     if (Number.isNaN(value.getTime())) return "";
 
-    return `${value.getFullYear()}-${String(
-        value.getMonth() + 1,
-    ).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(
+        2,
+        "0",
+    )}-${String(value.getDate()).padStart(2, "0")}`;
 }
 
 export default function Index({
@@ -46,27 +42,17 @@ export default function Index({
         to: new Date(`${range.to}T00:00:00`),
     });
 
-    const [invFilter, setInvFilter] = useState(
-        filters.category || "all",
-    );
+    const [invFilter, setInvFilter] = useState(filters.category || "all");
 
-    const [supFilter, setSupFilter] = useState(
-        filters.supplier_id || "all",
-    );
+    const [supFilter, setSupFilter] = useState(filters.supplier_id || "all");
 
-    const [usrFilter, setUsrFilter] = useState(
-        filters.user_id || "all",
-    );
+    const [usrFilter, setUsrFilter] = useState(filters.user_id || "all");
 
     function buildParams(overrides = {}) {
         return {
-            from: dateRange?.from
-                ? formatDate(dateRange.from)
-                : range.from,
+            from: dateRange?.from ? formatDate(dateRange.from) : range.from,
 
-            to: dateRange?.to
-                ? formatDate(dateRange.to)
-                : range.to,
+            to: dateRange?.to ? formatDate(dateRange.to) : range.to,
 
             category: invFilter,
             supplier_id: supFilter,
@@ -77,15 +63,11 @@ export default function Index({
     }
 
     function applyFilters(overrides = {}) {
-        router.get(
-            "/reports",
-            buildParams(overrides),
-            {
-                preserveState: true,
-                preserveScroll: true,
-                replace: true,
-            },
-        );
+        router.get("/reports", buildParams(overrides), {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        });
     }
 
     function changeCategory(value) {
@@ -104,9 +86,7 @@ export default function Index({
     }
 
     function openPrint() {
-        const params = new URLSearchParams(
-            buildParams({ tab }),
-        ).toString();
+        const params = new URLSearchParams(buildParams({ tab })).toString();
 
         const iframe = document.createElement("iframe");
 
@@ -138,9 +118,7 @@ export default function Index({
     }
 
     function exportCsv() {
-        const params = new URLSearchParams(
-            buildParams({ tab }),
-        ).toString();
+        const params = new URLSearchParams(buildParams({ tab })).toString();
 
         window.location.href = `/reports/export?${params}`;
     }
@@ -156,25 +134,19 @@ export default function Index({
                     </h1>
 
                     <p className="text-[13px] text-gray-500">
-                        Read-only summaries — inventory, receiving, dispensing and suppliers.
+                        Read-only summaries — inventory, receiving, dispensing
+                        and suppliers.
                     </p>
                 </div>
 
                 <div className="flex items-center gap-2">
-                    {[
-                        "receiving",
-                        "dispensing",
-                        "deletions",
-                    ].includes(tab) && (
+                    {["receiving", "dispensing", "deletions"].includes(tab) && (
                         <DateRangePicker
                             dateRange={dateRange}
                             onChange={(rangeValue) => {
                                 setDateRange(rangeValue);
 
-                                if (
-                                    rangeValue?.from &&
-                                    rangeValue?.to
-                                ) {
+                                if (rangeValue?.from && rangeValue?.to) {
                                     applyFilters({
                                         from: formatDate(rangeValue.from),
                                         to: formatDate(rangeValue.to),
@@ -291,9 +263,9 @@ export default function Index({
 
                 <TabsContent value="deletions" className="mt-0">
                     <DeletionsTab
-    deletions={deletions}
-    deletedMedicines={deletedMedicines}
-/>
+                        deletions={deletions}
+                        deletedMedicines={deletedMedicines}
+                    />
                 </TabsContent>
             </Tabs>
         </AuthenticatedLayout>

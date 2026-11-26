@@ -405,32 +405,40 @@ class ReportController extends Controller
 
         $totalRevenue = (float) StockOut::sum('total_amount');
 
-        // Only use the actual cost of the batch linked to a dispensing record.
-        // Do not invent a cost using a percentage of the selling price.
-        $costedDispensing = DB::table('stock_out')
-            ->join(
-                'stock_in',
-                function ($join) {
-                    $join->on(
-                        'stock_out.stock_in_id',
-                        '=',
-                        'stock_in.stock_in_id',
-                    )->on(
-                        'stock_out.medicine_id',
-                        '=',
-                        'stock_in.medicine_id',
-                    );
-                },
-            );
+        // Only transactions linked to their original medicine batch
+        // are included in the costed sales calculation.
+        $costedDispensing = DB::table('stock_out as so')
+            ->join('stock_in as si', function ($join) {
+                $join->on(
+                    'so.stock_in_id',
+                    '=',
+                    'si.stock_in_id',
+                )->on(
+                    'so.medicine_id',
+                    '=',
+                    'si.medicine_id',
+                );
+            })
+            ->where('si.cost_price', '>', 0);
 
-        $cogs = (float) (clone $costedDispensing)
+        // Calculate revenue, COGS, and units from the same
+        // batch-linked dispensing records.
+        $costedTotals = (clone $costedDispensing)
             ->selectRaw(
-                'COALESCE(SUM(stock_out.quantity * stock_in.cost_price), 0) AS total',
+                'COALESCE(SUM(so.total_amount), 0) AS costed_revenue',
             )
-            ->value('total');
+            ->selectRaw(
+                'COALESCE(SUM(so.quantity * si.cost_price), 0) AS cogs',
+            )
+            ->selectRaw(
+                'COALESCE(SUM(so.quantity), 0) AS costed_dispensed_units',
+            )
+            ->first();
 
-        $costedDispensedUnits = (int) (clone $costedDispensing)
-            ->sum('stock_out.quantity');
+        $costedRevenue = (float) $costedTotals->costed_revenue;
+        $cogs = (float) $costedTotals->cogs;
+
+        $costedDispensedUnits = (int) $costedTotals->costed_dispensed_units;
 
         $totalDispensedUnits = (int) StockOut::sum('quantity');
 
@@ -438,6 +446,28 @@ class ReportController extends Controller
             0,
             $totalDispensedUnits - $costedDispensedUnits,
         );
+
+        $uncostedRevenue = max(
+            0,
+            $totalRevenue - $costedRevenue,
+        );
+
+        $coverage = $totalDispensedUnits > 0
+            ? round(
+                ($costedDispensedUnits / $totalDispensedUnits) * 100,
+                1,
+            )
+            : null;
+
+        $revenueCoverage = $totalRevenue > 0
+            ? round(
+                ($costedRevenue / $totalRevenue) * 100,
+                1,
+            )
+            : null;
+
+        $grossProfitIsPartial =
+            $uncostedDispensedUnits > 0 || $uncostedRevenue > 0.005;
 
         $overall = [
             'total_revenue' => $totalRevenue,
@@ -448,20 +478,25 @@ class ReportController extends Controller
                 )
                 ->value('total'),
 
-            'profit' => $totalRevenue - $cogs,
+            // Gross profit is calculated only for sales with
+            // a valid original batch cost.
+            'profit' => $costedRevenue - $cogs,
 
             'cogs' => $cogs,
+
+            'costed_revenue' => $costedRevenue,
+
+            'uncosted_revenue' => $uncostedRevenue,
 
             'costed_dispensed_units' => $costedDispensedUnits,
 
             'uncosted_dispensed_units' => $uncostedDispensedUnits,
 
-            'cogs_coverage_percentage' => $totalDispensedUnits > 0
-                ? round(
-                    ($costedDispensedUnits / $totalDispensedUnits) * 100,
-                    1,
-                )
-                : 100,
+            'cogs_coverage_percentage' => $coverage,
+
+            'cogs_revenue_coverage_percentage' => $revenueCoverage,
+
+            'profit_is_partial' => $grossProfitIsPartial,
 
             'total_received_units' => (int) StockIn::sum('quantity'),
 
@@ -951,9 +986,14 @@ class ReportController extends Controller
                             'u.full_name as received_by',
                         )
                         ->selectRaw(
-                            'COALESCE(SUM(CASE WHEN COALESCE(available_stock, 0) <= 0 THEN 1 ELSE 0 END), 0) AS out_of_stock',
+                            "COALESCE(
+                NULLIF(TRIM(s.name), ''),
+                NULLIF(TRIM(stock_in.supplier), ''),
+                'Unspecified'
+            ) AS supplier_name",
                         )
                         ->orderBy('stock_in.recorded_at')
+                        ->orderBy('stock_in.stock_in_id')
                         ->cursor();
 
                     foreach ($rows as $row) {

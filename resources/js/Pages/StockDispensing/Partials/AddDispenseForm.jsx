@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { router, usePage } from "@inertiajs/react";
 import { SearchableSelect } from "@/Components/ui/searchable-select";
@@ -77,9 +76,7 @@ export default function AddDispenseForm({ medicines, onClose }) {
     }
 
     function removeFromCart(cartId) {
-        setCart((prev) =>
-            prev.filter((item) => item.cart_id !== cartId),
-        );
+        setCart((prev) => prev.filter((item) => item.cart_id !== cartId));
     }
 
     function submitDispense() {
@@ -96,13 +93,11 @@ export default function AddDispenseForm({ medicines, onClose }) {
                 // Price is deliberately excluded.
                 // The backend retrieves it from the database.
 
-                items: cart.map(
-                    ({ medicine_id, quantity, dosage }) => ({
-                        medicine_id,
-                        quantity,
-                        dosage,
-                    }),
-                ),
+                items: cart.map(({ medicine_id, quantity, dosage }) => ({
+                    medicine_id,
+                    quantity,
+                    dosage,
+                })),
             },
             {
                 onSuccess: () => {
@@ -297,11 +292,10 @@ export default function AddDispenseForm({ medicines, onClose }) {
 
                             <input
                                 type="text"
+                                maxLength={100}
                                 className={inputCls}
                                 value={patientName}
-                                onChange={(e) =>
-                                    setPatientName(e.target.value)
-                                }
+                                onChange={(e) => setPatientName(e.target.value)}
                             />
                         </div>
 
@@ -312,6 +306,7 @@ export default function AddDispenseForm({ medicines, onClose }) {
 
                             <input
                                 type="text"
+                                maxLength={50}
                                 className={inputCls}
                                 value={prescriptionNo}
                                 onChange={(e) =>

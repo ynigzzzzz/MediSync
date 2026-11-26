@@ -36,6 +36,7 @@ class NewPasswordController extends Controller
             function ($user, $password) {
                 $user->forceFill([
                     'password_hash' => Hash::make($password),
+                    'must_change_password' => false,
                 ])->save();
 
                 event(new PasswordReset($user));

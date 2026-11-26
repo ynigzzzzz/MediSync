@@ -1,8 +1,8 @@
-import { Head } from '@inertiajs/react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import StatCard from '@/Components/StatCard';
-import HistoryFilters from '@/Pages/TransactionHistory/Partials/HistoryFilters';
-import HistoryTable from '@/Pages/TransactionHistory/Partials/HistoryTable';
+import { Head } from "@inertiajs/react";
+import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
+import StatCard from "@/Components/StatCard";
+import HistoryFilters from "@/Pages/TransactionHistory/Partials/HistoryFilters";
+import HistoryTable from "@/Pages/TransactionHistory/Partials/HistoryTable";
 
 export default function Index({
     transactions,
@@ -16,16 +16,19 @@ export default function Index({
     canExport = false,
 }) {
     const queryString = new URLSearchParams(
-        Object.entries(filters).filter(([, value]) => value !== null && value !== undefined && value !== ''),
+        Object.entries(filters).filter(
+            ([, value]) =>
+                value !== null && value !== undefined && value !== "",
+        ),
     ).toString();
 
     const exportCsv = () => {
-        window.location.href = `${route('transaction-history.export')}${queryString ? `?${queryString}` : ''}`;
+        window.location.href = `${route("transaction-history.export")}${queryString ? `?${queryString}` : ""}`;
     };
 
     const printReport = () => {
-        const printUrl = `${route('transaction-history.print')}${queryString ? `?${queryString}` : ''}`;
-        window.open(printUrl, '_blank', 'noopener,noreferrer');
+        const printUrl = `${route("transaction-history.print")}${queryString ? `?${queryString}` : ""}`;
+        window.open(printUrl, "_blank", "noopener,noreferrer");
     };
 
     return (
@@ -64,7 +67,9 @@ export default function Index({
                 <StatCard
                     icon="fa-chart-line"
                     label="Net Change"
-                    value={(Number(stockInTotal) - Number(stockOutTotal)).toLocaleString()}
+                    value={(
+                        Number(stockInTotal) - Number(stockOutTotal)
+                    ).toLocaleString()}
                 />
             </div>
 
@@ -74,7 +79,8 @@ export default function Index({
 
             <div className="no-print mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
                 <p className="text-[13px] font-medium text-gray-500">
-                    {Number(totalFilteredRecords).toLocaleString()} record(s) match filters.
+                    {Number(totalFilteredRecords).toLocaleString()} record(s)
+                    match filters.
                 </p>
 
                 {(canExport || canPrint) && (

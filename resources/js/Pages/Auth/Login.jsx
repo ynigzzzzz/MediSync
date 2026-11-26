@@ -17,12 +17,36 @@ const hasPill = (i) => (i * 17 + 7) % 11 === 0;
 
 // Team section. Add or remove people here.
 const TEAM = [
-    { name: "Ynigo Panisa", role: "Project Leader · Developer" },
-    { name: "Marinel Delima", role: "Designer" },
-    { name: "Xyza Paz", role: "Technical Writer · System Analyst" },
-    { name: "Dahn Gabutero", role: "Database Administrator" },
-    { name: "Renji Chatto", role: "Systems Administrator" },
-    { name: "Vann Nadela", role: "Contributor" },
+    {
+        name: "Ynigo Panisa",
+        role: "Project Leader · Developer",
+        image: "/images/team/nigo-panisa.jpg",
+    },
+    {
+        name: "Marinel Delima",
+        role: "Designer",
+        image: "/images/team/marinel-delima.jpg",
+    },
+    {
+        name: "Xyza Paz",
+        role: "Technical Writer · System Analyst",
+        image: "/images/team/xyza-paz.jpg",
+    },
+    {
+        name: "Dahn Gabutero",
+        role: "Database Administrator",
+        image: "/images/team/dahn-gabutero.jpg",
+    },
+    {
+        name: "Renji Chatto",
+        role: "Systems Administrator",
+        image: "/images/team/renji-chatto.jpg",
+    },
+    {
+        name: "Vann Nadela",
+        role: "Quality Assurance",
+        image: "/images/team/vann-nadela.jpg",
+    },
 ];
 
 const initials = (name) =>
@@ -421,7 +445,7 @@ export default function Login({ status, canResetPassword = true }) {
                 {/* Photo, inset from the outline */}
                 <div className="relative min-h-[320px] overflow-hidden rounded-[24px] bg-gradient-to-br from-[#FFB7CE] to-[#FF4D79] md:min-h-[480px]">
                     <img
-                        src="/images/group-photo.jpg"
+                        src="/images/medisync_team.jpg"
                         alt="The MediSync team"
                         className="absolute inset-0 h-full w-full object-cover"
                         onError={(e) => e.currentTarget.classList.add("hidden")}
@@ -451,9 +475,23 @@ export default function Login({ status, canResetPassword = true }) {
                                 key={m.name}
                                 className="flex items-center gap-3 rounded-2xl border border-[#FF4D79]/20 bg-white/50 p-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-[#FF4D79]/50 hover:bg-white"
                             >
-                                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#FFB7CE] to-[#FF4D79] text-sm font-bold text-white shadow-md">
-                                    {initials(m.name)}
-                                </span>
+                                <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-[#FFB7CE] to-[#FF4D79] shadow-md">
+                                    {/* Fallback initials if the photo is unavailable */}
+                                    <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-white">
+                                        {initials(m.name)}
+                                    </span>
+
+                                    {/* Contributor photo */}
+                                    <img
+                                        src={m.image}
+                                        alt={`${m.name} profile`}
+                                        className="absolute inset-0 h-full w-full rounded-full object-cover"
+                                        onError={(e) => {
+                                            e.currentTarget.style.display =
+                                                "none";
+                                        }}
+                                    />
+                                </div>
                                 <span className="min-w-0">
                                     <span className="block truncate font-semibold text-gray-900">
                                         {m.name}

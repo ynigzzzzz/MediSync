@@ -61,6 +61,7 @@ export default function ContactIndex({ inquiryTypes, prefill }) {
                     </label>
                     <input
                         className={inputCls}
+                        maxLength={100}
                         value={data.full_name}
                         onChange={(e) => setData("full_name", e.target.value)}
                         required
@@ -79,6 +80,7 @@ export default function ContactIndex({ inquiryTypes, prefill }) {
                     <input
                         type="email"
                         className={inputCls}
+                        maxLength={100}
                         value={data.email}
                         onChange={(e) => setData("email", e.target.value)}
                         required
@@ -96,6 +98,7 @@ export default function ContactIndex({ inquiryTypes, prefill }) {
                     <input
                         type="tel"
                         className={inputCls}
+                        maxLength={20}
                         value={data.contact_number}
                         onChange={(e) =>
                             setData("contact_number", e.target.value)

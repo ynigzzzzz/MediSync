@@ -16,9 +16,9 @@ class StoreContactRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'full_name' => ['required', 'string', 'max:150'],
-            'email' => ['required', 'email', 'max:150'],
-            'contact_number' => ['nullable', 'regex:/^[0-9+\-() ]*$/', 'max:30'],
+            'full_name' => ['required', 'string', 'max:100'],
+            'email' => ['required', 'email', 'max:100'],
+            'contact_number' => ['nullable', 'regex:/^[0-9+\-() ]*$/', 'max:20'],
             'inquiry_type' => ['required', Rule::in(array_keys(ContactController::INQUIRY_TYPES))],
             'subject' => ['required', 'string', 'max:200'],
             'message' => ['required', 'string'],
